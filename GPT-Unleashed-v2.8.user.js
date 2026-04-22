@@ -1402,6 +1402,8 @@
       div[class*="left"][class*="rail"] a:hover,
       div[class*="left"][class*="rail"] button:hover {
         background: var(--rabbit-sidebar-hover) !important;
+      }
+
       body > div nav:first-of-type a,
       nav[aria-label*="Chat history"] a,
       nav[aria-label*="chat history"] a,
@@ -1416,7 +1418,7 @@
       div[class*="sidebar"][class*="panel"] a,
       div[class*="left"][class*="panel"] a,
       div[class*="left"][class*="rail"] a {
-        color: var(--rabbit-sidebar-link) !important;
+        color: var(--rabbit-sidebar-text) !important;
       }
 
       /* =========================
