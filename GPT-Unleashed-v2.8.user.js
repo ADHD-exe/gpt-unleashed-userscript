@@ -2118,8 +2118,6 @@
     const title = panel.querySelector('[data-role="panel-title"]');
     const homeBtn = panel.querySelector('[data-action="nav-home"]');
     const toggle = panel.querySelector('[data-role="panel-toggle"]');
-    const launcherVisibilityToggle = panel.querySelector('[data-role="launcher-visibility-toggle"]');
-
     if (title) {
       title.textContent = settings.panelHidden ? 'GPT-Unleashed' : getPanelTitle(settings.panelPage);
     }
@@ -2132,9 +2130,6 @@
       toggle.textContent = settings.panelHidden ? 'Open' : 'Minimize';
     }
 
-    if (launcherVisibilityToggle) {
-      launcherVisibilityToggle.textContent = settings.launcherHiddenUntilHover ? 'Unhide' : 'Hide';
-    }
   }
 
   function setActivePage(panel, page, shouldSave = true) {
@@ -2267,6 +2262,11 @@
       'theme-export': 'Download the current theme as JSON.',
       'theme-import': 'Import a theme JSON payload and apply it.'
     };
+    const settingsTips = {
+      featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
+      featureFontEnabled: 'Enable or disable script-managed chat and sidebar font settings.',
+      launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.'
+    };
 
     panel.querySelectorAll('[data-page="home"] button[data-action]').forEach((btn) => {
       if (!(btn instanceof HTMLButtonElement)) return;
@@ -2299,6 +2299,20 @@
       const tip = themeActionTips[btn.dataset.action || ''];
       if (tip) btn.title = tip;
     });
+
+    panel.querySelectorAll('[data-page="settings"] [data-key]').forEach((control) => {
+      if (!(control instanceof HTMLElement)) return;
+      const key = control.dataset.key || '';
+      const tip = settingsTips[key];
+      if (!tip) return;
+      control.title = tip;
+      const row = control.closest('.rabbit-row');
+      if (row instanceof HTMLElement) {
+        row.title = tip;
+        const label = row.querySelector('span');
+        if (label instanceof HTMLElement) label.title = tip;
+      }
+    });
   }
 
   function makePanel() {
@@ -2323,7 +2337,6 @@
         <div class="rabbit-panel-title" data-role="panel-title">GPT-Unleashed</div>
         <div class="rabbit-panel-actions">
           <button type="button" data-action="nav-home">Home</button>
-          <button type="button" data-action="toggle-launcher-visibility" data-role="launcher-visibility-toggle">${settings.launcherHiddenUntilHover ? 'Unhide' : 'Hide'}</button>
           <button type="button" data-action="toggle" data-role="panel-toggle">${settings.panelHidden ? 'Open' : 'Minimize'}</button>
         </div>
       </div>
@@ -2622,6 +2635,10 @@
               <span>Font override</span>
               <input type="checkbox" data-key="featureFontEnabled" ${settings.featureFontEnabled ? 'checked' : ''}>
             </label>
+            <label class="rabbit-row">
+              <span>Hide launcher until hover</span>
+              <input type="checkbox" data-key="launcherHiddenUntilHover" ${settings.launcherHiddenUntilHover ? 'checked' : ''}>
+            </label>
           </div>
 
           <div class="rabbit-group">
@@ -2744,6 +2761,10 @@
 
       if (key === 'chatTextAlign' || LAYOUT_SLIDER_KEYS.has(key) || key.startsWith('layout')) {
         updateLayoutControls(panel);
+      }
+
+      if (key === 'launcherHiddenUntilHover') {
+        updatePanelHiddenState(panel);
       }
 
       scheduleSaveSettings();
@@ -2873,12 +2894,6 @@
           panel.style.bottom = 'auto';
         }
 
-        updatePanelHiddenState(panel);
-      }
-
-      if (action === 'toggle-launcher-visibility') {
-        settings.launcherHiddenUntilHover = !settings.launcherHiddenUntilHover;
-        saveSettings();
         updatePanelHiddenState(panel);
       }
 
@@ -3558,7 +3573,6 @@
 
     if (!ranked.length) return [];
     const bestScore = ranked[0].score;
-    if (bestScore <= 0) return [];
     return ranked.filter((entry) => entry.score >= bestScore - 18).map((entry) => entry.node);
   }
 
