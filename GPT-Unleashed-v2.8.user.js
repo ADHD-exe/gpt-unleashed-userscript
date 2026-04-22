@@ -267,7 +267,6 @@
       'layoutWheelAdjustEnabled',
       'layoutTrackFillEnabled',
       'layoutSliderSkinEnabled',
-      'layoutAdvancedControlsEnabled'
       'layoutAdvancedControlsEnabled',
       'codeSyntaxHighlightEnabled',
       'uiMatchThemeEnabled'
@@ -2392,7 +2391,6 @@
     const settingsTips = {
       featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
       featureFontEnabled: 'Enable or disable script-managed chat and sidebar font settings.',
-      launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.'
       launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.',
       codeSyntaxHighlightEnabled: 'Turn syntax highlighting colors for embedded code blocks on or off.',
       uiMatchThemeEnabled: 'Use the currently selected theme to automatically style the panel UI colors.'
@@ -2946,6 +2944,7 @@
         const matchToggle = panel.querySelector('input[data-key="uiMatchThemeEnabled"]');
         if (matchToggle instanceof HTMLInputElement) matchToggle.checked = false;
         updateUiThemeControls(panel);
+      }
       if (COLOR_KEYS.includes(key)) {
         syncColorControls(panel, key, settings[key]);
       }
