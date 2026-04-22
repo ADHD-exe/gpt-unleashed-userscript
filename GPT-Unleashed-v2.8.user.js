@@ -53,7 +53,7 @@
 
     sidebarBg: '#000000',
     sidebarText: '#c466ff',
-    sidebarLink: '#ff00ff',
+    sidebarHover: '#ff00ff',
 
     chatTextAlign: 'left',
     chatFontFamily: 'inherit',
@@ -109,7 +109,7 @@
     'composerText',
     'sidebarBg',
     'sidebarText',
-    'sidebarLink',
+    'sidebarHover',
     'panelUiBg',
     'panelUiBubble',
     'panelUiFont',
@@ -135,18 +135,18 @@
     'composerText',
     'sidebarBg',
     'sidebarText',
-    'sidebarLink'
+    'sidebarHover'
   ];
   const BUILTIN_THEME_PRESETS = [
-    { id: 'builtin-default', name: 'Default Theme', theme: { pageBg: defaults.pageBg, pageText: defaults.pageText, userBubbleBg: defaults.userBubbleBg, userBubbleText: defaults.userBubbleText, assistantBubbleBg: defaults.assistantBubbleBg, assistantBubbleText: defaults.assistantBubbleText, embedBg: defaults.embedBg, embedText: defaults.embedText, composerBg: defaults.composerBg, composerText: defaults.composerText, sidebarBg: defaults.sidebarBg, sidebarText: defaults.sidebarText, sidebarLink: defaults.sidebarLink } },
-    { id: 'builtin-midnight-oled', name: 'Midnight OLED', theme: { pageBg: '#000000', pageText: '#f4f8ff', userBubbleBg: '#0e1628', userBubbleText: '#d8e7ff', assistantBubbleBg: '#121212', assistantBubbleText: '#f1f1f1', embedBg: '#111827', embedText: '#dbeafe', composerBg: '#0b1220', composerText: '#e2e8f0', sidebarBg: '#030712', sidebarText: '#cbd5e1', sidebarLink: '#60a5fa' } },
-    { id: 'builtin-dracula', name: 'Dracula', theme: { pageBg: '#282a36', pageText: '#f8f8f2', userBubbleBg: '#44475a', userBubbleText: '#f8f8f2', assistantBubbleBg: '#6272a4', assistantBubbleText: '#f8f8f2', embedBg: '#1f2230', embedText: '#bd93f9', composerBg: '#343746', composerText: '#ff79c6', sidebarBg: '#21222c', sidebarText: '#f8f8f2', sidebarLink: '#8be9fd' } },
-    { id: 'builtin-nord', name: 'Nord', theme: { pageBg: '#2e3440', pageText: '#eceff4', userBubbleBg: '#4c566a', userBubbleText: '#eceff4', assistantBubbleBg: '#3b4252', assistantBubbleText: '#d8dee9', embedBg: '#434c5e', embedText: '#88c0d0', composerBg: '#3b4252', composerText: '#e5e9f0', sidebarBg: '#2b303b', sidebarText: '#d8dee9', sidebarLink: '#81a1c1' } },
-    { id: 'builtin-github-dark', name: 'GitHub Dark', theme: { pageBg: '#0d1117', pageText: '#c9d1d9', userBubbleBg: '#21262d', userBubbleText: '#e6edf3', assistantBubbleBg: '#161b22', assistantBubbleText: '#c9d1d9', embedBg: '#30363d', embedText: '#c9d1d9', composerBg: '#0f141b', composerText: '#e6edf3', sidebarBg: '#010409', sidebarText: '#c9d1d9', sidebarLink: '#58a6ff' } },
-    { id: 'builtin-solarized-dark', name: 'Solarized Dark', theme: { pageBg: '#002b36', pageText: '#93a1a1', userBubbleBg: '#073642', userBubbleText: '#eee8d5', assistantBubbleBg: '#0b3a46', assistantBubbleText: '#93a1a1', embedBg: '#0f414b', embedText: '#b58900', composerBg: '#08333d', composerText: '#2aa198', sidebarBg: '#001f27', sidebarText: '#93a1a1', sidebarLink: '#268bd2' } },
-    { id: 'builtin-catppuccin-mocha', name: 'Catppuccin Mocha', theme: { pageBg: '#1e1e2e', pageText: '#cdd6f4', userBubbleBg: '#45475a', userBubbleText: '#cdd6f4', assistantBubbleBg: '#313244', assistantBubbleText: '#cdd6f4', embedBg: '#585b70', embedText: '#f9e2af', composerBg: '#313244', composerText: '#89dceb', sidebarBg: '#181825', sidebarText: '#bac2de', sidebarLink: '#89b4fa' } },
-    { id: 'builtin-notion-light', name: 'Notion Light', theme: { pageBg: '#f7f6f3', pageText: '#37352f', userBubbleBg: '#e9e5dc', userBubbleText: '#2f2d28', assistantBubbleBg: '#ffffff', assistantBubbleText: '#37352f', embedBg: '#efebe4', embedText: '#5b5a56', composerBg: '#ffffff', composerText: '#2f2d28', sidebarBg: '#fbfaf8', sidebarText: '#5f5b53', sidebarLink: '#2f76db' } },
-    { id: 'builtin-synthwave-neon', name: 'Synthwave Neon', theme: { pageBg: '#120422', pageText: '#f5d9ff', userBubbleBg: '#2b0d4d', userBubbleText: '#ff9de2', assistantBubbleBg: '#1a1336', assistantBubbleText: '#9efcff', embedBg: '#220a3d', embedText: '#f9ff66', composerBg: '#2d0f45', composerText: '#a9ff68', sidebarBg: '#0a0318', sidebarText: '#d8b7ff', sidebarLink: '#54f7ff' } }
+    { id: 'builtin-default', name: 'Default Theme', theme: { pageBg: defaults.pageBg, pageText: defaults.pageText, userBubbleBg: defaults.userBubbleBg, userBubbleText: defaults.userBubbleText, assistantBubbleBg: defaults.assistantBubbleBg, assistantBubbleText: defaults.assistantBubbleText, embedBg: defaults.embedBg, embedText: defaults.embedText, composerBg: defaults.composerBg, composerText: defaults.composerText, sidebarBg: defaults.sidebarBg, sidebarText: defaults.sidebarText, sidebarHover: defaults.sidebarHover } },
+    { id: 'builtin-midnight-oled', name: 'Midnight OLED', theme: { pageBg: '#000000', pageText: '#f4f8ff', userBubbleBg: '#0e1628', userBubbleText: '#d8e7ff', assistantBubbleBg: '#121212', assistantBubbleText: '#f1f1f1', embedBg: '#111827', embedText: '#dbeafe', composerBg: '#0b1220', composerText: '#e2e8f0', sidebarBg: '#030712', sidebarText: '#cbd5e1', sidebarHover: '#60a5fa' } },
+    { id: 'builtin-dracula', name: 'Dracula', theme: { pageBg: '#282a36', pageText: '#f8f8f2', userBubbleBg: '#44475a', userBubbleText: '#f8f8f2', assistantBubbleBg: '#6272a4', assistantBubbleText: '#f8f8f2', embedBg: '#1f2230', embedText: '#bd93f9', composerBg: '#343746', composerText: '#ff79c6', sidebarBg: '#21222c', sidebarText: '#f8f8f2', sidebarHover: '#8be9fd' } },
+    { id: 'builtin-nord', name: 'Nord', theme: { pageBg: '#2e3440', pageText: '#eceff4', userBubbleBg: '#4c566a', userBubbleText: '#eceff4', assistantBubbleBg: '#3b4252', assistantBubbleText: '#d8dee9', embedBg: '#434c5e', embedText: '#88c0d0', composerBg: '#3b4252', composerText: '#e5e9f0', sidebarBg: '#2b303b', sidebarText: '#d8dee9', sidebarHover: '#81a1c1' } },
+    { id: 'builtin-github-dark', name: 'GitHub Dark', theme: { pageBg: '#0d1117', pageText: '#c9d1d9', userBubbleBg: '#21262d', userBubbleText: '#e6edf3', assistantBubbleBg: '#161b22', assistantBubbleText: '#c9d1d9', embedBg: '#30363d', embedText: '#c9d1d9', composerBg: '#0f141b', composerText: '#e6edf3', sidebarBg: '#010409', sidebarText: '#c9d1d9', sidebarHover: '#58a6ff' } },
+    { id: 'builtin-solarized-dark', name: 'Solarized Dark', theme: { pageBg: '#002b36', pageText: '#93a1a1', userBubbleBg: '#073642', userBubbleText: '#eee8d5', assistantBubbleBg: '#0b3a46', assistantBubbleText: '#93a1a1', embedBg: '#0f414b', embedText: '#b58900', composerBg: '#08333d', composerText: '#2aa198', sidebarBg: '#001f27', sidebarText: '#93a1a1', sidebarHover: '#268bd2' } },
+    { id: 'builtin-catppuccin-mocha', name: 'Catppuccin Mocha', theme: { pageBg: '#1e1e2e', pageText: '#cdd6f4', userBubbleBg: '#45475a', userBubbleText: '#cdd6f4', assistantBubbleBg: '#313244', assistantBubbleText: '#cdd6f4', embedBg: '#585b70', embedText: '#f9e2af', composerBg: '#313244', composerText: '#89dceb', sidebarBg: '#181825', sidebarText: '#bac2de', sidebarHover: '#89b4fa' } },
+    { id: 'builtin-notion-light', name: 'Notion Light', theme: { pageBg: '#f7f6f3', pageText: '#37352f', userBubbleBg: '#e9e5dc', userBubbleText: '#2f2d28', assistantBubbleBg: '#ffffff', assistantBubbleText: '#37352f', embedBg: '#efebe4', embedText: '#5b5a56', composerBg: '#ffffff', composerText: '#2f2d28', sidebarBg: '#fbfaf8', sidebarText: '#5f5b53', sidebarHover: '#2f76db' } },
+    { id: 'builtin-synthwave-neon', name: 'Synthwave Neon', theme: { pageBg: '#120422', pageText: '#f5d9ff', userBubbleBg: '#2b0d4d', userBubbleText: '#ff9de2', assistantBubbleBg: '#1a1336', assistantBubbleText: '#9efcff', embedBg: '#220a3d', embedText: '#f9ff66', composerBg: '#2d0f45', composerText: '#a9ff68', sidebarBg: '#0a0318', sidebarText: '#d8b7ff', sidebarHover: '#54f7ff' } }
   ];
 
   const NUMERIC_RANGES = {
@@ -203,6 +203,9 @@
 
   function normalizeSettings(input) {
     const merged = { ...defaults, ...(input || {}) };
+    if (typeof merged.sidebarHover !== 'string' && typeof input?.sidebarLink === 'string') {
+      merged.sidebarHover = input.sidebarLink;
+    }
 
     for (const key of COLOR_KEYS) {
       merged[key] = sanitizeHexColor(merged[key], defaults[key]);
@@ -420,7 +423,7 @@
       panelUiBg: safeTheme.sidebarBg,
       panelUiBubble: safeTheme.assistantBubbleBg,
       panelUiFont: safeTheme.pageText,
-      panelUiOutline: safeTheme.sidebarLink,
+      panelUiOutline: safeTheme.sidebarHover,
       panelUiButton: safeTheme.userBubbleBg
     };
   }
@@ -1252,7 +1255,7 @@
     const composerText = settings.themeComposerEnabled ? settings.composerText : 'inherit';
     const sidebarBg = settings.themeSidebarEnabled ? settings.sidebarBg : 'transparent';
     const sidebarText = settings.themeSidebarEnabled ? settings.sidebarText : 'inherit';
-    const sidebarLink = settings.themeSidebarEnabled ? settings.sidebarLink : 'inherit';
+    const sidebarHover = settings.themeSidebarEnabled ? settings.sidebarHover : 'inherit';
     const selectedTheme = getThemePresetById(settings.selectedThemePresetId) || getThemePresetById(defaults.selectedThemePresetId);
     const matchedUi = settings.uiMatchThemeEnabled && selectedTheme ? derivePanelUiColorsFromTheme(selectedTheme.theme) : null;
     const panelUiBg = matchedUi ? matchedUi.panelUiBg : settings.panelUiBg;
@@ -1370,15 +1373,23 @@
         color: var(--rabbit-sidebar-text) !important;
       }
 
-      body > div nav:first-of-type a,
-      aside[class*="sidebar"] a,
-      aside[data-testid*="sidebar"] a,
-      div[data-testid*="sidebar"] a,
-      div[class*="sidebar"][class*="open"] a,
-      div[class*="sidebar"][class*="panel"] a,
-      div[class*="left"][class*="panel"] a,
-      div[class*="left"][class*="rail"] a {
-        color: var(--rabbit-sidebar-link) !important;
+      body > div nav:first-of-type a:hover,
+      body > div nav:first-of-type button:hover,
+      aside[class*="sidebar"] a:hover,
+      aside[class*="sidebar"] button:hover,
+      aside[data-testid*="sidebar"] a:hover,
+      aside[data-testid*="sidebar"] button:hover,
+      div[data-testid*="sidebar"] a:hover,
+      div[data-testid*="sidebar"] button:hover,
+      div[class*="sidebar"][class*="open"] a:hover,
+      div[class*="sidebar"][class*="open"] button:hover,
+      div[class*="sidebar"][class*="panel"] a:hover,
+      div[class*="sidebar"][class*="panel"] button:hover,
+      div[class*="left"][class*="panel"] a:hover,
+      div[class*="left"][class*="panel"] button:hover,
+      div[class*="left"][class*="rail"] a:hover,
+      div[class*="left"][class*="rail"] button:hover {
+        background: var(--rabbit-sidebar-hover) !important;
       }
 
       /* =========================
@@ -1647,7 +1658,7 @@
 
         --rabbit-sidebar-bg: ${sidebarBg};
         --rabbit-sidebar-text: ${sidebarText};
-        --rabbit-sidebar-link: ${sidebarLink};
+        --rabbit-sidebar-hover: ${sidebarHover};
 
         --rabbit-chat-text-align: ${settings.chatTextAlign};
         --rabbit-chat-font-family: ${fontValue};
@@ -2626,8 +2637,8 @@
               ${renderColorControl('sidebarText')}
             </label>
             <label class="rabbit-row">
-              <span>Link color</span>
-              ${renderColorControl('sidebarLink')}
+              <span>Hover color</span>
+              ${renderColorControl('sidebarHover')}
             </label>
           </div>
         </div>
