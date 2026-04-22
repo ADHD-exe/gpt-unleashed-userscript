@@ -713,7 +713,7 @@
       return btn;
     };
 
-    const normalizedMode = mode === 'all' ? 'all' : 'favorites';
+    const normalizedMode = mode === 'all' ? 'all' : mode === 'favorites' ? 'favorites' : 'all';
 
     const toggleBtnLabel = normalizedMode === 'favorites'
       ? 'View All Prompts'
@@ -780,7 +780,7 @@
       dock = document.createElement('div');
       dock.className = 'rabbit-composer-prompt-dock';
       dock.innerHTML = `
-        <button type="button" class="rabbit-composer-code-btn" aria-label="Prompt tools" title="Prompt tools">&lt;/&gt;</button>
+        <button type="button" class="rabbit-composer-code-btn" aria-label="Prompt tools" title="Prompt tools">Prompt</button>
         <div class="rabbit-composer-prompt-menu" role="menu" aria-hidden="true"></div>
       `;
       shell.appendChild(dock);
@@ -1348,10 +1348,16 @@
          ========================= */
 
       body > div nav:first-of-type,
+      nav[aria-label*="Chat history"],
+      nav[aria-label*="chat history"],
+      nav[aria-label*="sidebar"],
       aside[class*="sidebar"],
       aside[data-testid*="sidebar"],
       div[data-testid*="sidebar"],
+      div[data-slot="sidebar"],
+      div[data-panel="sidebar"],
       div[class*="sidebar"][class*="open"],
+      div[class*="sidebar"][class*="closed"],
       div[class*="sidebar"][class*="panel"],
       div[class*="left"][class*="panel"],
       div[class*="left"][class*="rail"] {
@@ -1360,10 +1366,16 @@
       }
 
       body > div nav:first-of-type *,
+      nav[aria-label*="Chat history"] *,
+      nav[aria-label*="chat history"] *,
+      nav[aria-label*="sidebar"] *,
       aside[class*="sidebar"] *,
       aside[data-testid*="sidebar"] *,
       div[data-testid*="sidebar"] *,
+      div[data-slot="sidebar"] *,
+      div[data-panel="sidebar"] *,
       div[class*="sidebar"][class*="open"] *,
+      div[class*="sidebar"][class*="closed"] *,
       div[class*="sidebar"][class*="panel"] *,
       div[class*="left"][class*="panel"] *,
       div[class*="left"][class*="rail"] * {
@@ -1371,10 +1383,16 @@
       }
 
       body > div nav:first-of-type a,
+      nav[aria-label*="Chat history"] a,
+      nav[aria-label*="chat history"] a,
+      nav[aria-label*="sidebar"] a,
       aside[class*="sidebar"] a,
       aside[data-testid*="sidebar"] a,
       div[data-testid*="sidebar"] a,
+      div[data-slot="sidebar"] a,
+      div[data-panel="sidebar"] a,
       div[class*="sidebar"][class*="open"] a,
+      div[class*="sidebar"][class*="closed"] a,
       div[class*="sidebar"][class*="panel"] a,
       div[class*="left"][class*="panel"] a,
       div[class*="left"][class*="rail"] a {
@@ -1386,17 +1404,20 @@
          ========================= */
 
       .rabbit-composer-shell {
+        display: flex !important;
+        align-items: center !important;
         background: var(--rabbit-composer-bg) !important;
         border-color: rgba(255,255,255,0.12) !important;
         box-shadow: 0 10px 26px rgba(0,0,0,0.34) !important;
         border-radius: 18px !important;
-        transform: translateY(-12px) !important;
-        margin-bottom: 12px !important;
-        min-height: 58px !important;
-        max-height: 64px !important;
+        transform: translateY(-8px) !important;
+        margin-bottom: 8px !important;
+        min-height: 64px !important;
+        max-height: 72px !important;
         overflow: visible !important;
         position: relative !important;
-        padding-left: 46px !important;
+        padding-left: 58px !important;
+        padding-right: 58px !important;
         backdrop-filter: blur(10px) !important;
         border: 1px solid rgba(255,255,255,0.14) !important;
       }
@@ -1411,6 +1432,8 @@
       .rabbit-composer-shell .rabbit-composer-input,
       .rabbit-composer-shell textarea,
       .rabbit-composer-shell [contenteditable="true"] {
+        align-self: center !important;
+        width: 100% !important;
         background: transparent !important;
         color: var(--rabbit-composer-text) !important;
         caret-color: var(--rabbit-composer-text) !important;
@@ -1423,6 +1446,7 @@
         resize: none !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
+        margin: 0 !important;
       }
 
       .rabbit-composer-shell .rabbit-composer-input *,
@@ -1439,14 +1463,16 @@
       .rabbit-composer-shell svg,
       .rabbit-composer-shell span {
         color: inherit;
+        vertical-align: middle !important;
       }
 
       .rabbit-composer-prompt-dock {
         position: absolute;
-        left: 10px;
+        left: 14px;
         top: 50%;
         transform: translateY(-50%);
-        z-index: 3;
+        z-index: 5;
+        pointer-events: auto;
       }
 
       .rabbit-composer-code-btn {
@@ -1455,12 +1481,16 @@
         background: color-mix(in srgb, var(--rabbit-composer-bg) 45%, #111);
         color: var(--rabbit-composer-text);
         border-radius: 999px;
-        width: 28px;
+        min-width: 42px;
         height: 28px;
-        font-size: 12px;
-        font-weight: 700;
+        padding: 0 10px;
+        font-size: 11px;
+        font-weight: 800;
         line-height: 1;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       .rabbit-composer-prompt-menu {
@@ -1684,14 +1714,26 @@
 
       body > div nav:first-of-type,
       body > div nav:first-of-type *,
+      nav[aria-label*="Chat history"],
+      nav[aria-label*="Chat history"] *,
+      nav[aria-label*="chat history"],
+      nav[aria-label*="chat history"] *,
+      nav[aria-label*="sidebar"],
+      nav[aria-label*="sidebar"] *,
       aside[class*="sidebar"],
       aside[class*="sidebar"] *,
       aside[data-testid*="sidebar"],
       aside[data-testid*="sidebar"] *,
       div[data-testid*="sidebar"],
       div[data-testid*="sidebar"] *,
+      div[data-slot="sidebar"],
+      div[data-slot="sidebar"] *,
+      div[data-panel="sidebar"],
+      div[data-panel="sidebar"] *,
       div[class*="sidebar"][class*="open"],
       div[class*="sidebar"][class*="open"] *,
+      div[class*="sidebar"][class*="closed"],
+      div[class*="sidebar"][class*="closed"] *,
       div[class*="sidebar"][class*="panel"],
       div[class*="sidebar"][class*="panel"] *,
       div[class*="left"][class*="panel"],
