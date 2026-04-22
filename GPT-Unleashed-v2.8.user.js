@@ -693,6 +693,7 @@
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.dataset.role = 'delete-chat-check';
+      checkbox.dataset.chatHref = chat.href;
       checkbox.dataset.chatIndex = String(index);
 
       const title = document.createElement('span');
@@ -811,7 +812,11 @@
   function findMenuButtonForRow(row) {
     if (!(row instanceof HTMLElement)) return null;
     const selectors = [
+      'button[data-testid*="options"]',
+      'button[data-testid*="menu"]',
       'button[aria-haspopup="menu"]',
+      'button[aria-label*="Options"]',
+      'button[aria-label*="options"]',
       'button[aria-label*="More"]',
       'button[aria-label*="more"]'
     ];
@@ -819,7 +824,12 @@
       const btn = row.querySelector(selector);
       if (btn instanceof HTMLButtonElement) return btn;
     }
-    return null;
+    const allButtons = [...row.querySelectorAll('button')];
+    return allButtons.find((btn) => btn instanceof HTMLButtonElement && (
+      (btn.getAttribute('aria-label') || '').toLowerCase().includes('more')
+      || (btn.getAttribute('aria-label') || '').toLowerCase().includes('option')
+      || btn.getAttribute('aria-haspopup') === 'menu'
+    )) || null;
   }
 
   function isElementVisible(node) {
@@ -845,7 +855,14 @@
       if (!(node instanceof HTMLElement) || !isElementVisible(node)) return false;
       const text = (node.textContent || '').trim().toLowerCase();
       const aria = (node.getAttribute('aria-label') || '').trim().toLowerCase();
-      return text === 'delete' || text.includes('delete chat') || text.includes('delete conversation') || aria.includes('delete');
+      const variant = (node.getAttribute('data-variant') || '').trim().toLowerCase();
+      return text === 'delete'
+        || text.includes('delete chat')
+        || text.includes('delete conversation')
+        || text.includes('remove')
+        || aria.includes('delete')
+        || aria.includes('remove')
+        || variant.includes('destructive');
     }) || null;
   }
 
@@ -858,8 +875,25 @@
       if (!(node instanceof HTMLElement) || !isElementVisible(node)) return false;
       const text = (node.textContent || '').trim().toLowerCase();
       const aria = (node.getAttribute('aria-label') || '').trim().toLowerCase();
-      return text === 'delete' || text === 'confirm' || text.includes('yes, delete') || aria.includes('confirm') || aria.includes('delete');
+      const isCancel = text.includes('cancel') || aria.includes('cancel') || text.includes('keep');
+      if (isCancel) return false;
+      return text === 'delete'
+        || text === 'confirm'
+        || text.includes('yes, delete')
+        || text.includes('delete')
+        || text.includes('remove')
+        || aria.includes('confirm')
+        || aria.includes('delete')
+        || aria.includes('remove');
     }) || null;
+  }
+
+  function robustClick(node) {
+    if (!(node instanceof HTMLElement)) return;
+    node.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }));
+    node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    node.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    node.click();
   }
 
   async function deleteChatFromSidebarItem(item) {
@@ -869,20 +903,22 @@
     const targetItem = fallbackItem || item;
     const row = targetItem?.row;
     if (!(row instanceof HTMLElement)) return false;
+    row.scrollIntoView({ block: 'nearest' });
+    await sleep(80);
     const menuButton = findMenuButtonForRow(row);
     if (!(menuButton instanceof HTMLElement)) return false;
-    menuButton.click();
-    await sleep(180);
+    robustClick(menuButton);
+    await sleep(240);
     const menuRoot = findOpenMenuRoot();
     const deleteAction = findDeleteMenuAction(menuRoot);
     if (!(deleteAction instanceof HTMLElement)) return false;
-    deleteAction.click();
-    await sleep(220);
+    robustClick(deleteAction);
+    await sleep(260);
     const confirm = findConfirmDeleteAction();
     if (confirm instanceof HTMLElement) {
-      confirm.click();
+      robustClick(confirm);
     }
-    await sleep(280);
+    await sleep(320);
     return true;
   }
 
@@ -2649,10 +2685,16 @@
         const checks = [...panel.querySelectorAll('[data-role="delete-chat-check"]')]
           .filter((node) => node instanceof HTMLInputElement && node.checked);
         const allChats = getSidebarChatItems();
+        const byHref = new Map(allChats.map((chat) => [chat.href, chat]));
         const selectedChats = checks
-          .map((node) => Number(node.dataset.chatIndex))
-          .filter((idx) => Number.isFinite(idx) && idx >= 0 && idx < allChats.length)
-          .map((idx) => allChats[idx]);
+          .map((node) => {
+            const href = String(node.dataset.chatHref || '');
+            if (href && byHref.has(href)) return byHref.get(href);
+            const idx = Number(node.dataset.chatIndex);
+            if (Number.isFinite(idx) && idx >= 0 && idx < allChats.length) return allChats[idx];
+            return null;
+          })
+          .filter((chat) => !!chat);
 
         if (!selectedChats.length) {
           alert('Select at least one chat to delete.');
