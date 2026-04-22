@@ -1416,6 +1416,7 @@
         max-height: 72px !important;
         overflow: visible !important;
         position: relative !important;
+        z-index: 2147483644 !important;
         padding-left: 58px !important;
         padding-right: 58px !important;
         backdrop-filter: blur(10px) !important;
@@ -1471,7 +1472,7 @@
         left: 14px;
         top: 50%;
         transform: translateY(-50%);
-        z-index: 5;
+        z-index: 2147483645;
         pointer-events: auto;
       }
 
@@ -1497,6 +1498,7 @@
         position: absolute;
         left: 0;
         bottom: calc(100% + 8px);
+        z-index: 2147483646;
         display: none;
         min-width: 220px;
         max-width: min(340px, 70vw);
