@@ -56,6 +56,9 @@
 
     chatTextAlign: 'left',
     chatFontFamily: 'inherit',
+    userFontSize: 15,
+    assistantFontSize: 15,
+    sidebarFontSize: 14,
 
     bubbleRadius: 22,
     bubbleMaxWidth: 860,
@@ -64,6 +67,12 @@
 
     featureThemeEnabled: true,
     featureFontEnabled: true,
+    themePageEnabled: true,
+    themeUserBubbleEnabled: true,
+    themeAssistantBubbleEnabled: true,
+    themeEmbedEnabled: true,
+    themeComposerEnabled: true,
+    themeSidebarEnabled: true,
     panelOpacityEnabled: true,
     panelOpacity: 0.92,
     panelPage: 'home',
@@ -104,7 +113,10 @@
     bubbleMaxWidth: { min: 260, max: 1200 },
     bubblePaddingY: { min: 6, max: 28 },
     bubblePaddingX: { min: 8, max: 40 },
-    panelOpacity: { min: 0.35, max: 1 }
+    panelOpacity: { min: 0.35, max: 1 },
+    userFontSize: { min: 11, max: 32 },
+    assistantFontSize: { min: 11, max: 32 },
+    sidebarFontSize: { min: 10, max: 28 }
   };
 
   let settings = loadSettings();
@@ -156,6 +168,12 @@
 
     merged.featureThemeEnabled = !!merged.featureThemeEnabled;
     merged.featureFontEnabled = !!merged.featureFontEnabled;
+    merged.themePageEnabled = !!merged.themePageEnabled;
+    merged.themeUserBubbleEnabled = !!merged.themeUserBubbleEnabled;
+    merged.themeAssistantBubbleEnabled = !!merged.themeAssistantBubbleEnabled;
+    merged.themeEmbedEnabled = !!merged.themeEmbedEnabled;
+    merged.themeComposerEnabled = !!merged.themeComposerEnabled;
+    merged.themeSidebarEnabled = !!merged.themeSidebarEnabled;
     merged.panelOpacityEnabled = !!merged.panelOpacityEnabled;
     merged.panelPage = PANEL_PAGES.has(merged.panelPage) ? merged.panelPage : defaults.panelPage;
 
@@ -174,7 +192,17 @@
       const range = NUMERIC_RANGES[key];
       return clampNumber(value, range.min, range.max, defaults[key]);
     }
-    if (key === 'featureThemeEnabled' || key === 'featureFontEnabled' || key === 'panelOpacityEnabled') {
+    if ([
+      'featureThemeEnabled',
+      'featureFontEnabled',
+      'themePageEnabled',
+      'themeUserBubbleEnabled',
+      'themeAssistantBubbleEnabled',
+      'themeEmbedEnabled',
+      'themeComposerEnabled',
+      'themeSidebarEnabled',
+      'panelOpacityEnabled'
+    ].includes(key)) {
       return !!value;
     }
     if (key === 'chatTextAlign') {
@@ -442,6 +470,46 @@
     });
   }
 
+  function renderDeleteChatsList(panel) {
+    const list = panel.querySelector('[data-role="delete-chats-list"]');
+    if (!(list instanceof HTMLElement)) return;
+    const chats = getSidebarChatItems();
+    list.innerHTML = '';
+    if (!chats.length) {
+      const empty = document.createElement('div');
+      empty.className = 'rabbit-note';
+      empty.textContent = 'No chats found in the sidebar.';
+      list.appendChild(empty);
+      return;
+    }
+
+    chats.forEach((chat, index) => {
+      const row = document.createElement('label');
+      row.className = 'rabbit-chat-item';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.dataset.role = 'delete-chat-check';
+      checkbox.dataset.chatIndex = String(index);
+
+      const title = document.createElement('span');
+      title.textContent = chat.title;
+      title.title = chat.href;
+
+      row.appendChild(checkbox);
+      row.appendChild(title);
+      list.appendChild(row);
+    });
+  }
+
+  function setDeleteChatsModalOpen(panel, open) {
+    const modal = panel.querySelector('[data-role="delete-chats-modal"]');
+    if (!(modal instanceof HTMLElement)) return;
+    modal.classList.toggle('open', !!open);
+    modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) renderDeleteChatsList(panel);
+  }
+
   function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`;
@@ -514,6 +582,103 @@
 
     const filename = `GPT-Unleashed-${SCRIPT_VERSION}-backup.json`;
     downloadTextFile(filename, JSON.stringify(payload, null, 2), 'application/json');
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function getSidebarChatItems() {
+    const anchors = [...document.querySelectorAll('nav a[href*="/c/"], aside a[href*="/c/"], div[data-testid*="sidebar"] a[href*="/c/"]')];
+    const seen = new Set();
+    const items = [];
+    anchors.forEach((anchor) => {
+      if (!(anchor instanceof HTMLAnchorElement)) return;
+      const href = anchor.href || anchor.getAttribute('href') || '';
+      if (!href || seen.has(href)) return;
+      const row = anchor.closest('li, [role="listitem"], div');
+      if (!(row instanceof HTMLElement)) return;
+      const title = (anchor.textContent || anchor.getAttribute('title') || 'Untitled chat').trim();
+      seen.add(href);
+      items.push({ href, title: title || 'Untitled chat', row, anchor });
+    });
+    return items;
+  }
+
+  function findMenuButtonForRow(row) {
+    if (!(row instanceof HTMLElement)) return null;
+    const selectors = [
+      'button[aria-haspopup="menu"]',
+      'button[aria-label*="More"]',
+      'button[aria-label*="more"]'
+    ];
+    for (const selector of selectors) {
+      const btn = row.querySelector(selector);
+      if (btn instanceof HTMLButtonElement) return btn;
+    }
+    return null;
+  }
+
+  function findDeleteMenuAction() {
+    const candidates = [...document.querySelectorAll('[role="menuitem"], button, div[role="button"]')];
+    return candidates.find((node) => {
+      if (!(node instanceof HTMLElement)) return false;
+      const text = (node.textContent || '').trim().toLowerCase();
+      return text === 'delete' || text.includes('delete chat') || text.includes('delete conversation');
+    }) || null;
+  }
+
+  function findConfirmDeleteAction() {
+    const candidates = [...document.querySelectorAll('button, [role="button"]')];
+    return candidates.find((node) => {
+      if (!(node instanceof HTMLElement)) return false;
+      const text = (node.textContent || '').trim().toLowerCase();
+      return text === 'delete' || text === 'confirm' || text.includes('yes, delete');
+    }) || null;
+  }
+
+  async function deleteChatFromSidebarItem(item) {
+    const row = item?.row;
+    if (!(row instanceof HTMLElement)) return false;
+    const menuButton = findMenuButtonForRow(row);
+    if (!(menuButton instanceof HTMLElement)) return false;
+    menuButton.click();
+    await sleep(80);
+    const deleteAction = findDeleteMenuAction();
+    if (!(deleteAction instanceof HTMLElement)) return false;
+    deleteAction.click();
+    await sleep(120);
+    const confirm = findConfirmDeleteAction();
+    if (confirm instanceof HTMLElement) {
+      confirm.click();
+    }
+    await sleep(180);
+    return true;
+  }
+
+  function ensureSidebarDeleteButtons() {
+    const items = getSidebarChatItems();
+    items.forEach((item) => {
+      const row = item.row;
+      if (!(row instanceof HTMLElement)) return;
+      if (row.querySelector('.rabbit-sidebar-delete-btn')) return;
+      const menuButton = findMenuButtonForRow(row);
+      if (!(menuButton instanceof HTMLElement) || !menuButton.parentElement) return;
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'rabbit-sidebar-delete-btn';
+      deleteBtn.title = 'Delete chat';
+      deleteBtn.setAttribute('aria-label', 'Delete chat');
+      deleteBtn.textContent = '🗑';
+      deleteBtn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!confirm(`Delete "${item.title}"?`)) return;
+        await deleteChatFromSidebarItem(item);
+        scheduleRefresh(120);
+      });
+      menuButton.parentElement.insertBefore(deleteBtn, menuButton);
+    });
   }
 
 
@@ -633,6 +798,22 @@
     const hiddenOpacity = Math.max(0.12, Math.min(0.6, panelOpacity * 0.35 + 0.08));
     const themeEnabled = settings.featureThemeEnabled;
     const fontValue = settings.featureFontEnabled ? cssFontFamilyValue() : 'inherit';
+    const userFontSize = settings.featureFontEnabled ? `${settings.userFontSize}px` : 'inherit';
+    const assistantFontSize = settings.featureFontEnabled ? `${settings.assistantFontSize}px` : 'inherit';
+    const sidebarFontSize = settings.featureFontEnabled ? `${settings.sidebarFontSize}px` : 'inherit';
+    const pageBg = settings.themePageEnabled ? settings.pageBg : 'initial';
+    const pageText = settings.themePageEnabled ? settings.pageText : 'inherit';
+    const userBubbleBg = settings.themeUserBubbleEnabled ? settings.userBubbleBg : 'transparent';
+    const userBubbleText = settings.themeUserBubbleEnabled ? settings.userBubbleText : 'inherit';
+    const assistantBubbleBg = settings.themeAssistantBubbleEnabled ? settings.assistantBubbleBg : 'transparent';
+    const assistantBubbleText = settings.themeAssistantBubbleEnabled ? settings.assistantBubbleText : 'inherit';
+    const embedBg = settings.themeEmbedEnabled ? settings.embedBg : 'transparent';
+    const embedText = settings.themeEmbedEnabled ? settings.embedText : 'inherit';
+    const composerBg = settings.themeComposerEnabled ? settings.composerBg : 'transparent';
+    const composerText = settings.themeComposerEnabled ? settings.composerText : 'inherit';
+    const sidebarBg = settings.themeSidebarEnabled ? settings.sidebarBg : 'transparent';
+    const sidebarText = settings.themeSidebarEnabled ? settings.sidebarText : 'inherit';
+    const sidebarLink = settings.themeSidebarEnabled ? settings.sidebarLink : 'inherit';
 
     const themeCss = themeEnabled ? `
       html, body, #__next, main {
@@ -893,27 +1074,30 @@
 
     ensureStyleTag().textContent = `
       :root {
-        --rabbit-page-bg: ${settings.pageBg};
-        --rabbit-page-text: ${settings.pageText};
+        --rabbit-page-bg: ${pageBg};
+        --rabbit-page-text: ${pageText};
 
-        --rabbit-user-bubble-bg: ${settings.userBubbleBg};
-        --rabbit-user-bubble-text: ${settings.userBubbleText};
+        --rabbit-user-bubble-bg: ${userBubbleBg};
+        --rabbit-user-bubble-text: ${userBubbleText};
 
-        --rabbit-assistant-bubble-bg: ${settings.assistantBubbleBg};
-        --rabbit-assistant-bubble-text: ${settings.assistantBubbleText};
+        --rabbit-assistant-bubble-bg: ${assistantBubbleBg};
+        --rabbit-assistant-bubble-text: ${assistantBubbleText};
 
-        --rabbit-embed-bg: ${settings.embedBg};
-        --rabbit-embed-text: ${settings.embedText};
+        --rabbit-embed-bg: ${embedBg};
+        --rabbit-embed-text: ${embedText};
 
-        --rabbit-composer-bg: ${settings.composerBg};
-        --rabbit-composer-text: ${settings.composerText};
+        --rabbit-composer-bg: ${composerBg};
+        --rabbit-composer-text: ${composerText};
 
-        --rabbit-sidebar-bg: ${settings.sidebarBg};
-        --rabbit-sidebar-text: ${settings.sidebarText};
-        --rabbit-sidebar-link: ${settings.sidebarLink};
+        --rabbit-sidebar-bg: ${sidebarBg};
+        --rabbit-sidebar-text: ${sidebarText};
+        --rabbit-sidebar-link: ${sidebarLink};
 
         --rabbit-chat-text-align: ${settings.chatTextAlign};
         --rabbit-chat-font-family: ${fontValue};
+        --rabbit-user-font-size: ${userFontSize};
+        --rabbit-assistant-font-size: ${assistantFontSize};
+        --rabbit-sidebar-font-size: ${sidebarFontSize};
 
         --rabbit-bubble-radius: ${settings.bubbleRadius}px;
         --rabbit-bubble-max-width: ${settings.bubbleMaxWidth}px;
@@ -940,6 +1124,25 @@
       [data-testid*="conversation"],
       [data-testid*="conversation"] * {
         font-family: var(--rabbit-chat-font-family) !important;
+      }
+
+      body > div nav:first-of-type,
+      body > div nav:first-of-type *,
+      aside[class*="sidebar"],
+      aside[class*="sidebar"] *,
+      aside[data-testid*="sidebar"],
+      aside[data-testid*="sidebar"] *,
+      div[data-testid*="sidebar"],
+      div[data-testid*="sidebar"] *,
+      div[class*="sidebar"][class*="open"],
+      div[class*="sidebar"][class*="open"] *,
+      div[class*="sidebar"][class*="panel"],
+      div[class*="sidebar"][class*="panel"] *,
+      div[class*="left"][class*="panel"],
+      div[class*="left"][class*="panel"] *,
+      div[class*="left"][class*="rail"],
+      div[class*="left"][class*="rail"] * {
+        font-size: var(--rabbit-sidebar-font-size) !important;
       }
 
       .rabbit-msg-target,
@@ -975,6 +1178,29 @@
       .rabbit-msg-target li code,
       .rabbit-msg-target span code {
         text-align: var(--rabbit-chat-text-align) !important;
+      }
+
+      .rabbit-msg-user,
+      .rabbit-msg-user *,
+      .rabbit-composer-shell .rabbit-composer-input,
+      .rabbit-composer-shell .rabbit-composer-input *,
+      .rabbit-composer-shell textarea,
+      .rabbit-composer-shell textarea *,
+      .rabbit-composer-shell [contenteditable="true"],
+      .rabbit-composer-shell [contenteditable="true"] * {
+        font-size: var(--rabbit-user-font-size) !important;
+      }
+
+      .rabbit-msg-assistant,
+      .rabbit-msg-assistant *,
+      .rabbit-msg-assistant h1,
+      .rabbit-msg-assistant h2,
+      .rabbit-msg-assistant h3,
+      .rabbit-msg-assistant h4,
+      .rabbit-msg-assistant h5,
+      .rabbit-msg-assistant h6,
+      .rabbit-msg-assistant [role="heading"] {
+        font-size: var(--rabbit-assistant-font-size) !important;
       }
 
       /* =========================
@@ -1293,6 +1519,58 @@
         line-height: 1.2;
         opacity: 0.72;
       }
+
+      #${PANEL_ID} .rabbit-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0,0,0,0.5);
+      }
+
+      #${PANEL_ID} .rabbit-modal.open {
+        display: flex;
+      }
+
+      #${PANEL_ID} .rabbit-modal-card {
+        width: min(560px, calc(100vw - 24px));
+        max-height: min(78vh, 640px);
+        overflow: auto;
+        background: var(--rabbit-panel-bg);
+        border: 1px solid var(--rabbit-panel-outline);
+        border-radius: 12px;
+        padding: 10px;
+      }
+
+      #${PANEL_ID} .rabbit-chat-list {
+        max-height: 45vh;
+        overflow: auto;
+        border: 1px solid var(--rabbit-panel-outline);
+        border-radius: 8px;
+        padding: 6px;
+        margin: 8px 0;
+      }
+
+      #${PANEL_ID} .rabbit-chat-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px;
+        margin: 4px 0;
+        align-items: center;
+      }
+
+      .rabbit-sidebar-delete-btn {
+        border: 1px solid currentColor;
+        border-radius: 6px;
+        background: transparent;
+        color: inherit;
+        min-width: 24px;
+        height: 24px;
+        font-size: 12px;
+        cursor: pointer;
+      }
     `;
   }
 
@@ -1427,6 +1705,7 @@
               <button type="button" data-action="nav-font">Font</button>
               <button type="button" data-action="nav-prompts">Prompts</button>
               <button type="button" data-action="export-chat">Export Chat</button>
+              <button type="button" data-action="delete-chats-open">Delete Chats</button>
               <button type="button" data-action="toggle">Hide</button>
               <button type="button" data-action="nav-settings">Settings</button>
             </div>
@@ -1437,6 +1716,10 @@
         <div class="rabbit-page" data-page="themes">
           <div class="rabbit-group">
             <div class="rabbit-group-title">Page</div>
+            <label class="rabbit-row">
+              <span>Enable section</span>
+              <input type="checkbox" data-key="themePageEnabled" ${settings.themePageEnabled ? 'checked' : ''}>
+            </label>
             <label class="rabbit-row">
               <span>Background</span>
               <input type="color" data-key="pageBg" value="${escapeHtml(settings.pageBg)}">
@@ -1450,6 +1733,10 @@
           <div class="rabbit-group">
             <div class="rabbit-group-title">Your Bubble</div>
             <label class="rabbit-row">
+              <span>Enable section</span>
+              <input type="checkbox" data-key="themeUserBubbleEnabled" ${settings.themeUserBubbleEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
               <span>Bubble background</span>
               <input type="color" data-key="userBubbleBg" value="${escapeHtml(settings.userBubbleBg)}">
             </label>
@@ -1461,6 +1748,10 @@
 
           <div class="rabbit-group">
             <div class="rabbit-group-title">ChatGPT Bubble</div>
+            <label class="rabbit-row">
+              <span>Enable section</span>
+              <input type="checkbox" data-key="themeAssistantBubbleEnabled" ${settings.themeAssistantBubbleEnabled ? 'checked' : ''}>
+            </label>
             <label class="rabbit-row">
               <span>Bubble background</span>
               <input type="color" data-key="assistantBubbleBg" value="${escapeHtml(settings.assistantBubbleBg)}">
@@ -1474,6 +1765,10 @@
           <div class="rabbit-group">
             <div class="rabbit-group-title">Embedded Content</div>
             <label class="rabbit-row">
+              <span>Enable section</span>
+              <input type="checkbox" data-key="themeEmbedEnabled" ${settings.themeEmbedEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
               <span>Background</span>
               <input type="color" data-key="embedBg" value="${escapeHtml(settings.embedBg)}">
             </label>
@@ -1486,6 +1781,10 @@
           <div class="rabbit-group">
             <div class="rabbit-group-title">Composer</div>
             <label class="rabbit-row">
+              <span>Enable section</span>
+              <input type="checkbox" data-key="themeComposerEnabled" ${settings.themeComposerEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
               <span>Bubble background</span>
               <input type="color" data-key="composerBg" value="${escapeHtml(settings.composerBg)}">
             </label>
@@ -1497,6 +1796,10 @@
 
           <div class="rabbit-group">
             <div class="rabbit-group-title">Sidebar</div>
+            <label class="rabbit-row">
+              <span>Enable section</span>
+              <input type="checkbox" data-key="themeSidebarEnabled" ${settings.themeSidebarEnabled ? 'checked' : ''}>
+            </label>
             <label class="rabbit-row">
               <span>Background</span>
               <input type="color" data-key="sidebarBg" value="${escapeHtml(settings.sidebarBg)}">
@@ -1578,6 +1881,27 @@
               <input type="text" data-key="chatFontFamily" value="${escapeHtml(settings.chatFontFamily)}" placeholder='Example: Inter, Arial, sans-serif'>
             </label>
             <div class="rabbit-note">Use an installed font name, or a fallback stack like "Segoe UI, Arial, sans-serif".</div>
+            <label class="rabbit-row">
+              <span>User responses + input bar</span>
+              <span class="rabbit-range-wrap">
+                <input type="range" min="11" max="32" step="1" data-key="userFontSize" value="${settings.userFontSize}">
+                <span data-val="userFontSize">${settings.userFontSize}px</span>
+              </span>
+            </label>
+            <label class="rabbit-row">
+              <span>ChatGPT responses + headings</span>
+              <span class="rabbit-range-wrap">
+                <input type="range" min="11" max="32" step="1" data-key="assistantFontSize" value="${settings.assistantFontSize}">
+                <span data-val="assistantFontSize">${settings.assistantFontSize}px</span>
+              </span>
+            </label>
+            <label class="rabbit-row">
+              <span>Sidebar font size</span>
+              <span class="rabbit-range-wrap">
+                <input type="range" min="10" max="28" step="1" data-key="sidebarFontSize" value="${settings.sidebarFontSize}">
+                <span data-val="sidebarFontSize">${settings.sidebarFontSize}px</span>
+              </span>
+            </label>
           </div>
         </div>
 
@@ -1690,6 +2014,19 @@
               <span>Buttons</span>
               <input type="color" data-key="panelUiButton" value="${escapeHtml(settings.panelUiButton)}">
             </label>
+          </div>
+        </div>
+      </div>
+      <div class="rabbit-modal" data-role="delete-chats-modal" aria-hidden="true">
+        <div class="rabbit-modal-card">
+          <div class="rabbit-group-title">Delete Chats</div>
+          <div class="rabbit-note">Select chats to remove from the sidebar.</div>
+          <div class="rabbit-chat-list" data-role="delete-chats-list"></div>
+          <div class="rabbit-actions-row">
+            <button type="button" data-action="delete-chats-select-all">Select all</button>
+            <button type="button" data-action="delete-chats-unselect-all">Unselect all</button>
+            <button type="button" data-action="delete-chats-confirm">Delete Selected</button>
+            <button type="button" data-action="delete-chats-close">Close</button>
           </div>
         </div>
       </div>
@@ -1945,6 +2282,49 @@
       if (action === 'export-script-settings') {
         exportScriptAndSettings();
       }
+
+      if (action === 'delete-chats-open') {
+        setDeleteChatsModalOpen(panel, true);
+      }
+
+      if (action === 'delete-chats-close') {
+        setDeleteChatsModalOpen(panel, false);
+      }
+
+      if (action === 'delete-chats-select-all' || action === 'delete-chats-unselect-all') {
+        const checked = action === 'delete-chats-select-all';
+        panel.querySelectorAll('[data-role="delete-chat-check"]').forEach((node) => {
+          if (node instanceof HTMLInputElement) node.checked = checked;
+        });
+      }
+
+      if (action === 'delete-chats-confirm') {
+        const checks = [...panel.querySelectorAll('[data-role="delete-chat-check"]')]
+          .filter((node) => node instanceof HTMLInputElement && node.checked);
+        const allChats = getSidebarChatItems();
+        const selectedChats = checks
+          .map((node) => Number(node.dataset.chatIndex))
+          .filter((idx) => Number.isFinite(idx) && idx >= 0 && idx < allChats.length)
+          .map((idx) => allChats[idx]);
+
+        if (!selectedChats.length) {
+          alert('Select at least one chat to delete.');
+          return;
+        }
+
+        if (!confirm(`Delete ${selectedChats.length} selected chat(s)? This cannot be undone.`)) return;
+        (async () => {
+          let deletedCount = 0;
+          for (const chat of selectedChats) {
+            const ok = await deleteChatFromSidebarItem(chat);
+            if (ok) deletedCount += 1;
+            await sleep(180);
+          }
+          alert(`Deleted ${deletedCount} chat(s).`);
+          setDeleteChatsModalOpen(panel, false);
+          scheduleRefresh(140);
+        })();
+      }
     });
 
     panel.addEventListener('change', (event) => {
@@ -1976,6 +2356,15 @@
       };
       reader.readAsText(file);
     });
+
+    const deleteModal = panel.querySelector('[data-role="delete-chats-modal"]');
+    if (deleteModal instanceof HTMLElement) {
+      deleteModal.addEventListener('click', (event) => {
+        if (event.target === deleteModal) {
+          setDeleteChatsModalOpen(panel, false);
+        }
+      });
+    }
 
     makeDraggable(panel, panel.querySelector('.rabbit-panel-header'));
     return panel;
@@ -2401,6 +2790,7 @@
     try {
       refreshMessageStyling();
       refreshComposerStyling();
+      ensureSidebarDeleteButtons();
     } finally {
       resumeObserver();
     }
