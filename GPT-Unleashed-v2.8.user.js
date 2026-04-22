@@ -802,13 +802,29 @@
       if (!(anchor instanceof HTMLAnchorElement)) return;
       const href = anchor.href || anchor.getAttribute('href') || '';
       if (!href || seen.has(href)) return;
-      const row = anchor.closest('li, [role="listitem"], div');
+      const row = resolveSidebarRowFromAnchor(anchor);
       if (!(row instanceof HTMLElement)) return;
       const title = (anchor.textContent || anchor.getAttribute('title') || 'Untitled chat').trim();
       seen.add(href);
       items.push({ href, title: title || 'Untitled chat', row, anchor });
     });
     return items;
+  }
+
+  function resolveSidebarRowFromAnchor(anchor) {
+    if (!(anchor instanceof HTMLElement)) return null;
+    const initialRow = anchor.closest('li, [role="listitem"], [data-testid*="history-item"], [data-testid*="conversation"], [data-testid*="thread"], [data-sidebar-chat-row], div');
+    if (!(initialRow instanceof HTMLElement)) return null;
+    if (findMenuButtonForRow(initialRow)) return initialRow;
+
+    let current = initialRow.parentElement;
+    let depth = 0;
+    while (current && depth < 8) {
+      if (findMenuButtonForRow(current)) return current;
+      current = current.parentElement;
+      depth += 1;
+    }
+    return initialRow;
   }
 
   function findMenuButtonForRow(row) {
@@ -846,12 +862,15 @@
     const menu = [...document.querySelectorAll('[role="menu"]')]
       .find((node) => node instanceof HTMLElement && isElementVisible(node));
     if (menu instanceof HTMLElement) return menu;
-    return [...document.querySelectorAll('[data-radix-popper-content-wrapper], [data-state="open"]')]
+    return [...document.querySelectorAll(
+      '[data-radix-menu-content], [data-radix-popper-content-wrapper], [data-state="open"][role], [cmdk-list-sizer]'
+    )]
       .find((node) => node instanceof HTMLElement && isElementVisible(node)) || null;
   }
 
   function findDeleteMenuAction(menuRoot) {
-    const scope = menuRoot instanceof HTMLElement ? menuRoot : document;
+    if (!(menuRoot instanceof HTMLElement)) return null;
+    const scope = menuRoot;
     const candidates = [...scope.querySelectorAll('[role="menuitem"], button, div[role="button"]')];
     return candidates.find((node) => {
       if (!(node instanceof HTMLElement) || !isElementVisible(node)) return false;
@@ -871,7 +890,8 @@
   function findConfirmDeleteAction() {
     const openDialog = [...document.querySelectorAll('[role="alertdialog"], [role="dialog"]')]
       .find((node) => node instanceof HTMLElement && isElementVisible(node));
-    const scope = openDialog instanceof HTMLElement ? openDialog : document;
+    if (!(openDialog instanceof HTMLElement)) return null;
+    const scope = openDialog;
     const candidates = [...scope.querySelectorAll('button, [role="button"]')];
     return candidates.find((node) => {
       if (!(node instanceof HTMLElement) || !isElementVisible(node)) return false;
@@ -912,6 +932,7 @@
     robustClick(menuButton);
     await sleep(240);
     const menuRoot = findOpenMenuRoot();
+    if (!(menuRoot instanceof HTMLElement)) return false;
     const deleteAction = findDeleteMenuAction(menuRoot);
     if (!(deleteAction instanceof HTMLElement)) return false;
     robustClick(deleteAction);
