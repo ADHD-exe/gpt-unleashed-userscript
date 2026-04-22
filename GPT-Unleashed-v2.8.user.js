@@ -20,6 +20,7 @@
 
   const STORAGE_KEY = 'rabbit_chatgpt_theme_settings_v28';
   const PROMPTS_KEY = 'rabbit_chatgpt_saved_prompts_v1';
+  const SAVED_THEMES_KEY = 'rabbit_chatgpt_saved_themes_v1';
   const PENDING_PROMPT_KEY = 'rabbit_chatgpt_pending_prompt_v1';
   const PENDING_PROMPT_MAX_AGE_MS = 10 * 60 * 1000;
   const STYLE_ID = 'rabbit-chatgpt-theme-style-v28';
@@ -113,6 +114,37 @@
     'panelUiOutline',
     'panelUiButton'
   ];
+  const THEME_SETTING_KEYS = [
+    'themePageEnabled',
+    'themeUserBubbleEnabled',
+    'themeAssistantBubbleEnabled',
+    'themeEmbedEnabled',
+    'themeComposerEnabled',
+    'themeSidebarEnabled',
+    'pageBg',
+    'pageText',
+    'userBubbleBg',
+    'userBubbleText',
+    'assistantBubbleBg',
+    'assistantBubbleText',
+    'embedBg',
+    'embedText',
+    'composerBg',
+    'composerText',
+    'sidebarBg',
+    'sidebarText',
+    'sidebarLink'
+  ];
+  const BUILTIN_THEME_PRESETS = [
+    { id: 'builtin-midnight-oled', name: 'Midnight OLED', theme: { pageBg: '#000000', pageText: '#f4f8ff', userBubbleBg: '#0e1628', userBubbleText: '#d8e7ff', assistantBubbleBg: '#121212', assistantBubbleText: '#f1f1f1', embedBg: '#111827', embedText: '#dbeafe', composerBg: '#0b1220', composerText: '#e2e8f0', sidebarBg: '#030712', sidebarText: '#cbd5e1', sidebarLink: '#60a5fa' } },
+    { id: 'builtin-dracula', name: 'Dracula', theme: { pageBg: '#282a36', pageText: '#f8f8f2', userBubbleBg: '#44475a', userBubbleText: '#f8f8f2', assistantBubbleBg: '#6272a4', assistantBubbleText: '#f8f8f2', embedBg: '#1f2230', embedText: '#bd93f9', composerBg: '#343746', composerText: '#ff79c6', sidebarBg: '#21222c', sidebarText: '#f8f8f2', sidebarLink: '#8be9fd' } },
+    { id: 'builtin-nord', name: 'Nord', theme: { pageBg: '#2e3440', pageText: '#eceff4', userBubbleBg: '#4c566a', userBubbleText: '#eceff4', assistantBubbleBg: '#3b4252', assistantBubbleText: '#d8dee9', embedBg: '#434c5e', embedText: '#88c0d0', composerBg: '#3b4252', composerText: '#e5e9f0', sidebarBg: '#2b303b', sidebarText: '#d8dee9', sidebarLink: '#81a1c1' } },
+    { id: 'builtin-github-dark', name: 'GitHub Dark', theme: { pageBg: '#0d1117', pageText: '#c9d1d9', userBubbleBg: '#21262d', userBubbleText: '#e6edf3', assistantBubbleBg: '#161b22', assistantBubbleText: '#c9d1d9', embedBg: '#30363d', embedText: '#c9d1d9', composerBg: '#0f141b', composerText: '#e6edf3', sidebarBg: '#010409', sidebarText: '#c9d1d9', sidebarLink: '#58a6ff' } },
+    { id: 'builtin-solarized-dark', name: 'Solarized Dark', theme: { pageBg: '#002b36', pageText: '#93a1a1', userBubbleBg: '#073642', userBubbleText: '#eee8d5', assistantBubbleBg: '#0b3a46', assistantBubbleText: '#93a1a1', embedBg: '#0f414b', embedText: '#b58900', composerBg: '#08333d', composerText: '#2aa198', sidebarBg: '#001f27', sidebarText: '#93a1a1', sidebarLink: '#268bd2' } },
+    { id: 'builtin-catppuccin-mocha', name: 'Catppuccin Mocha', theme: { pageBg: '#1e1e2e', pageText: '#cdd6f4', userBubbleBg: '#45475a', userBubbleText: '#cdd6f4', assistantBubbleBg: '#313244', assistantBubbleText: '#cdd6f4', embedBg: '#585b70', embedText: '#f9e2af', composerBg: '#313244', composerText: '#89dceb', sidebarBg: '#181825', sidebarText: '#bac2de', sidebarLink: '#89b4fa' } },
+    { id: 'builtin-notion-light', name: 'Notion Light', theme: { pageBg: '#f7f6f3', pageText: '#37352f', userBubbleBg: '#e9e5dc', userBubbleText: '#2f2d28', assistantBubbleBg: '#ffffff', assistantBubbleText: '#37352f', embedBg: '#efebe4', embedText: '#5b5a56', composerBg: '#ffffff', composerText: '#2f2d28', sidebarBg: '#fbfaf8', sidebarText: '#5f5b53', sidebarLink: '#2f76db' } },
+    { id: 'builtin-synthwave-neon', name: 'Synthwave Neon', theme: { pageBg: '#120422', pageText: '#f5d9ff', userBubbleBg: '#2b0d4d', userBubbleText: '#ff9de2', assistantBubbleBg: '#1a1336', assistantBubbleText: '#9efcff', embedBg: '#220a3d', embedText: '#f9ff66', composerBg: '#2d0f45', composerText: '#a9ff68', sidebarBg: '#0a0318', sidebarText: '#d8b7ff', sidebarLink: '#54f7ff' } }
+  ];
 
   const NUMERIC_RANGES = {
     bubbleRadius: { min: 6, max: 40 },
@@ -127,6 +159,7 @@
 
   let settings = loadSettings();
   let prompts = loadPrompts();
+  let savedThemes = loadSavedThemes();
   let saveTimer = null;
   let refreshTimer = null;
   let mutationObserver = null;
@@ -271,6 +304,85 @@
 
   function savePrompts() {
     localStorage.setItem(PROMPTS_KEY, JSON.stringify(prompts));
+  }
+
+  function getThemeSnapshotFromSettings(sourceSettings = settings) {
+    const snapshot = {};
+    THEME_SETTING_KEYS.forEach((key) => {
+      snapshot[key] = sourceSettings[key];
+    });
+    return snapshot;
+  }
+
+  function normalizeThemeSnapshot(input) {
+    const current = normalizeSettings(settings);
+    const merged = normalizeSettings({ ...current, ...(input || {}) });
+    return getThemeSnapshotFromSettings(merged);
+  }
+
+  function loadSavedThemes() {
+    try {
+      const raw = localStorage.getItem(SAVED_THEMES_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((item, index) => {
+          if (!item || typeof item !== 'object') return null;
+          const name = String(item.name || `Saved Theme ${index + 1}`).trim().slice(0, 64);
+          if (!name) return null;
+          const id = typeof item.id === 'string' && item.id.trim()
+            ? item.id.trim()
+            : `saved_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          return { id, name, theme: normalizeThemeSnapshot(item.theme || item.settings || {}) };
+        })
+        .filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  function saveSavedThemes() {
+    localStorage.setItem(SAVED_THEMES_KEY, JSON.stringify(savedThemes));
+  }
+
+  function getThemePresets() {
+    const builtins = BUILTIN_THEME_PRESETS.map((item) => ({
+      id: item.id,
+      name: item.name,
+      source: 'builtin',
+      theme: normalizeThemeSnapshot(item.theme || {})
+    }));
+    const customs = savedThemes.map((item) => ({
+      id: item.id,
+      name: item.name,
+      source: 'saved',
+      theme: normalizeThemeSnapshot(item.theme || {})
+    }));
+    return [...builtins, ...customs];
+  }
+
+  function applyThemePresetToSettings(themePreset) {
+    if (!themePreset || !themePreset.theme) return false;
+    const normalizedTheme = normalizeThemeSnapshot(themePreset.theme);
+    settings = normalizeSettings({ ...settings, ...normalizedTheme });
+    return true;
+  }
+
+  function renderThemeSelect(panel, selectedId = '') {
+    const select = panel.querySelector('[data-role="theme-select"]');
+    if (!(select instanceof HTMLSelectElement)) return;
+    const presets = getThemePresets();
+    const savedSet = new Set(savedThemes.map((item) => item.id));
+    select.innerHTML = '<option value="">Choose a theme…</option>';
+    presets.forEach((preset) => {
+      const option = document.createElement('option');
+      option.value = preset.id;
+      const suffix = savedSet.has(preset.id) ? ' (Saved)' : ' (Preset)';
+      option.textContent = `${preset.name}${suffix}`;
+      if (selectedId && selectedId === preset.id) option.selected = true;
+      select.appendChild(option);
+    });
   }
 
   function normalizePrompt(item, fallbackTitle) {
@@ -2150,6 +2262,11 @@
       export: 'Copy current settings JSON to clipboard.',
       import: 'Paste settings JSON to import and apply it.'
     };
+    const themeActionTips = {
+      'theme-save': 'Save the current color/toggle configuration as a reusable theme.',
+      'theme-export': 'Download the current theme as JSON.',
+      'theme-import': 'Import a theme JSON payload and apply it.'
+    };
 
     panel.querySelectorAll('[data-page="home"] button[data-action]').forEach((btn) => {
       if (!(btn instanceof HTMLButtonElement)) return;
@@ -2174,6 +2291,12 @@
     panel.querySelectorAll('[data-page="layout"] button[data-action]').forEach((btn) => {
       if (!(btn instanceof HTMLButtonElement)) return;
       const tip = layoutActionTips[btn.dataset.action || ''];
+      if (tip) btn.title = tip;
+    });
+
+    panel.querySelectorAll('[data-page="themes"] button[data-action]').forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const tip = themeActionTips[btn.dataset.action || ''];
       if (tip) btn.title = tip;
     });
   }
@@ -2222,6 +2345,24 @@
         </div>
 
         <div class="rabbit-page" data-page="themes">
+          <div class="rabbit-group">
+            <div class="rabbit-group-title">Theme Manager</div>
+            <label class="rabbit-row rabbit-font-row">
+              <span>Saved themes</span>
+              <select data-role="theme-select"></select>
+            </label>
+            <label class="rabbit-row rabbit-font-row">
+              <span>Theme name</span>
+              <input type="text" data-role="theme-name" placeholder="My custom theme">
+            </label>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="theme-save">Save Theme</button>
+              <button type="button" data-action="theme-export">Export Theme</button>
+              <button type="button" data-action="theme-import">Import Theme</button>
+            </div>
+            <div class="rabbit-note">Choose any preset, save your own variants, or import/export JSON files.</div>
+          </div>
+
           <div class="rabbit-group">
             <div class="rabbit-group-title">Page</div>
             <label class="rabbit-row">
@@ -2320,11 +2461,6 @@
               <span>Link color</span>
               <input type="color" data-key="sidebarLink" value="${escapeHtml(settings.sidebarLink)}">
             </label>
-          </div>
-
-          <div class="rabbit-group">
-            <div class="rabbit-group-title">Chat Text</div>
-            <div class="rabbit-note">Alignment applies across the chat UI content.</div>
           </div>
         </div>
 
@@ -2579,6 +2715,7 @@
     ensurePanelOnscreen(panel);
     applyPageOptionTooltips(panel);
     updateLayoutControls(panel);
+    renderThemeSelect(panel);
 
     panel.addEventListener('input', (event) => {
       const t = event.target;
@@ -2634,6 +2771,24 @@
       slider.dispatchEvent(new Event('input', { bubbles: true }));
       event.preventDefault();
     }, { passive: false });
+
+    panel.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target instanceof HTMLSelectElement && target.dataset.role === 'theme-select') {
+        const presetId = target.value;
+        if (!presetId) return;
+        const preset = getThemePresets().find((item) => item.id === presetId);
+        if (!preset) return;
+        if (!applyThemePresetToSettings(preset)) return;
+        saveSettings();
+        panel.remove();
+        applyStyles();
+        makePanel();
+        scheduleRefresh(80);
+      }
+    });
 
     panel.addEventListener('click', (event) => {
       const btn = event.target.closest('button');
@@ -2719,6 +2874,52 @@
         settings.launcherHiddenUntilHover = !settings.launcherHiddenUntilHover;
         saveSettings();
         updatePanelHiddenState(panel);
+      }
+
+      if (action === 'theme-save') {
+        const input = panel.querySelector('[data-role="theme-name"]');
+        const enteredName = input instanceof HTMLInputElement ? input.value.trim() : '';
+        const name = (enteredName || `Custom Theme ${savedThemes.length + 1}`).slice(0, 64);
+        const snapshot = getThemeSnapshotFromSettings(settings);
+        const existingIndex = savedThemes.findIndex((item) => item.name.toLowerCase() === name.toLowerCase());
+        const id = existingIndex >= 0 ? savedThemes[existingIndex].id : `saved_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+        const nextTheme = { id, name, theme: snapshot };
+        if (existingIndex >= 0) {
+          savedThemes[existingIndex] = nextTheme;
+        } else {
+          savedThemes.push(nextTheme);
+        }
+        saveSavedThemes();
+        renderThemeSelect(panel, id);
+        if (input instanceof HTMLInputElement) input.value = name;
+      }
+
+      if (action === 'theme-export') {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          version: SCRIPT_VERSION,
+          theme: getThemeSnapshotFromSettings(settings)
+        };
+        const filename = `gpt-unleashed-theme-${formatTimestampForFilename(new Date())}.json`;
+        downloadTextFile(filename, JSON.stringify(payload, null, 2), 'application/json');
+      }
+
+      if (action === 'theme-import') {
+        const raw = prompt('Paste a theme JSON payload:');
+        if (!raw) return;
+        try {
+          const parsed = JSON.parse(raw);
+          const importedTheme = parsed && typeof parsed === 'object' && parsed.theme ? parsed.theme : parsed;
+          const normalized = normalizeThemeSnapshot(importedTheme);
+          settings = normalizeSettings({ ...settings, ...normalized });
+          saveSettings();
+          panel.remove();
+          applyStyles();
+          makePanel();
+          scheduleRefresh(80);
+        } catch {
+          alert('Invalid theme JSON');
+        }
       }
 
       if (action === 'reset') {
