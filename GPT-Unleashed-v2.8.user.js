@@ -27,7 +27,7 @@
   const PANEL_ID = 'rabbit-chatgpt-theme-panel-v28';
   const PANEL_OPEN_TOP = 36;
   const PANEL_OPEN_RIGHT = 18;
-  const PANEL_PAGES = new Set(['home', 'themes', 'layout', 'font', 'prompts', 'settings', 'ui-theme']);
+  const PANEL_PAGES = new Set(['home', 'themes', 'layout', 'font', 'prompts', 'settings', 'ui-theme', 'syntax']);
   const AUXILIARY_UI_PATTERN = /\b(toolbar|actions|avatar|icon|sidebar|drawer|modal|dialog|popover|tooltip|toast|banner|menu|search|launcher|artifact|interpreter|notebook|canvas|status|alert|attachment|upload|footer|header)\b/;
   const COMPOSER_EXCLUSION_PATTERN = /\b(search|sidebar|drawer|modal|dialog|popover|tooltip|toast|banner|menu|launcher|artifact|interpreter|notebook|canvas|status|alert)\b/;
 
@@ -89,7 +89,15 @@
     panelUiButton: '#0a6600',
 
     panelHidden: false,
-    launcherHiddenUntilHover: false,
+    launcherHiddenUntilHover: true,
+    codeSyntaxHighlightEnabled: true,
+    codeSyntaxKeyword: '#ff7ab6',
+    codeSyntaxString: '#9fda8f',
+    codeSyntaxNumber: '#c8a2ff',
+    codeSyntaxComment: '#7f8c98',
+    codeSyntaxFunction: '#82aaff',
+    codeSyntaxType: '#4ec9b0',
+    codeSyntaxOperator: '#f7c96b',
     panelLeft: null,
     panelTop: null
   };
@@ -108,6 +116,13 @@
     'sidebarBg',
     'sidebarText',
     'sidebarLink',
+    'codeSyntaxKeyword',
+    'codeSyntaxString',
+    'codeSyntaxNumber',
+    'codeSyntaxComment',
+    'codeSyntaxFunction',
+    'codeSyntaxType',
+    'codeSyntaxOperator',
     'panelUiBg',
     'panelUiBubble',
     'panelUiFont',
@@ -152,9 +167,9 @@
     bubblePaddingY: { min: 6, max: 28 },
     bubblePaddingX: { min: 8, max: 40 },
     panelOpacity: { min: 0.35, max: 1 },
-    userFontSize: { min: 11, max: 32 },
-    assistantFontSize: { min: 11, max: 32 },
-    sidebarFontSize: { min: 10, max: 28 }
+    userFontSize: { min: 4, max: 32 },
+    assistantFontSize: { min: 4, max: 32 },
+    sidebarFontSize: { min: 4, max: 28 }
   };
 
   let settings = loadSettings();
@@ -219,6 +234,7 @@
     merged.layoutTrackFillEnabled = !!merged.layoutTrackFillEnabled;
     merged.layoutSliderSkinEnabled = !!merged.layoutSliderSkinEnabled;
     merged.layoutAdvancedControlsEnabled = !!merged.layoutAdvancedControlsEnabled;
+    merged.codeSyntaxHighlightEnabled = !!merged.codeSyntaxHighlightEnabled;
     merged.panelPage = PANEL_PAGES.has(merged.panelPage) ? merged.panelPage : defaults.panelPage;
 
     merged.panelHidden = !!merged.panelHidden;
@@ -251,7 +267,8 @@
       'layoutWheelAdjustEnabled',
       'layoutTrackFillEnabled',
       'layoutSliderSkinEnabled',
-      'layoutAdvancedControlsEnabled'
+      'layoutAdvancedControlsEnabled',
+      'codeSyntaxHighlightEnabled'
     ].includes(key)) {
       return !!value;
     }
@@ -1177,6 +1194,13 @@
     const assistantBubbleText = settings.themeAssistantBubbleEnabled ? settings.assistantBubbleText : 'inherit';
     const embedBg = settings.themeEmbedEnabled ? settings.embedBg : 'transparent';
     const embedText = settings.themeEmbedEnabled ? settings.embedText : 'inherit';
+    const syntaxKeyword = settings.codeSyntaxKeyword;
+    const syntaxString = settings.codeSyntaxString;
+    const syntaxNumber = settings.codeSyntaxNumber;
+    const syntaxComment = settings.codeSyntaxComment;
+    const syntaxFunction = settings.codeSyntaxFunction;
+    const syntaxType = settings.codeSyntaxType;
+    const syntaxOperator = settings.codeSyntaxOperator;
     const composerBg = settings.themeComposerEnabled ? settings.composerBg : 'transparent';
     const composerText = settings.themeComposerEnabled ? settings.composerText : 'inherit';
     const sidebarBg = settings.themeSidebarEnabled ? settings.sidebarBg : 'transparent';
@@ -1480,7 +1504,7 @@
       }
 
       .rabbit-msg-target pre,
-      .rabbit-msg-target pre *,
+      .rabbit-msg-target pre *:not([class*="token"]):not([class*="hljs-"]),
       .rabbit-msg-target blockquote,
       .rabbit-msg-target blockquote *,
       .rabbit-msg-target table,
@@ -1524,6 +1548,61 @@
         border-left: 3px solid rgba(255,255,255,0.22) !important;
         padding: 10px 12px !important;
       }
+
+      ${settings.codeSyntaxHighlightEnabled ? `
+      .rabbit-msg-target pre .token.comment,
+      .rabbit-msg-target pre .token.prolog,
+      .rabbit-msg-target pre .token.doctype,
+      .rabbit-msg-target pre .token.cdata,
+      .rabbit-msg-target pre .hljs-comment,
+      .rabbit-msg-target pre .hljs-quote {
+        color: var(--rabbit-code-comment) !important;
+      }
+
+      .rabbit-msg-target pre .token.keyword,
+      .rabbit-msg-target pre .token.selector,
+      .rabbit-msg-target pre .token.atrule,
+      .rabbit-msg-target pre .hljs-keyword,
+      .rabbit-msg-target pre .hljs-selector-tag {
+        color: var(--rabbit-code-keyword) !important;
+      }
+
+      .rabbit-msg-target pre .token.string,
+      .rabbit-msg-target pre .token.char,
+      .rabbit-msg-target pre .token.regex,
+      .rabbit-msg-target pre .hljs-string,
+      .rabbit-msg-target pre .hljs-regexp {
+        color: var(--rabbit-code-string) !important;
+      }
+
+      .rabbit-msg-target pre .token.number,
+      .rabbit-msg-target pre .token.boolean,
+      .rabbit-msg-target pre .token.constant,
+      .rabbit-msg-target pre .hljs-number,
+      .rabbit-msg-target pre .hljs-literal {
+        color: var(--rabbit-code-number) !important;
+      }
+
+      .rabbit-msg-target pre .token.function,
+      .rabbit-msg-target pre .token.method,
+      .rabbit-msg-target pre .hljs-function,
+      .rabbit-msg-target pre .hljs-title.function_ {
+        color: var(--rabbit-code-function) !important;
+      }
+
+      .rabbit-msg-target pre .token.class-name,
+      .rabbit-msg-target pre .token.builtin,
+      .rabbit-msg-target pre .hljs-type,
+      .rabbit-msg-target pre .hljs-class .hljs-title {
+        color: var(--rabbit-code-type) !important;
+      }
+
+      .rabbit-msg-target pre .token.operator,
+      .rabbit-msg-target pre .token.punctuation,
+      .rabbit-msg-target pre .hljs-operator {
+        color: var(--rabbit-code-operator) !important;
+      }
+      ` : ''}
     ` : '';
 
     ensureStyleTag().textContent = `
@@ -1539,6 +1618,13 @@
 
         --rabbit-embed-bg: ${embedBg};
         --rabbit-embed-text: ${embedText};
+        --rabbit-code-keyword: ${syntaxKeyword};
+        --rabbit-code-string: ${syntaxString};
+        --rabbit-code-number: ${syntaxNumber};
+        --rabbit-code-comment: ${syntaxComment};
+        --rabbit-code-function: ${syntaxFunction};
+        --rabbit-code-type: ${syntaxType};
+        --rabbit-code-operator: ${syntaxOperator};
 
         --rabbit-composer-bg: ${composerBg};
         --rabbit-composer-text: ${composerText};
@@ -2108,6 +2194,8 @@
         return 'Settings';
       case 'ui-theme':
         return 'UI Theme';
+      case 'syntax':
+        return 'Syntax Colors';
       default:
         return 'GPT-Unleashed';
     }
@@ -2265,7 +2353,12 @@
     const settingsTips = {
       featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
       featureFontEnabled: 'Enable or disable script-managed chat and sidebar font settings.',
-      launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.'
+      launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.',
+      codeSyntaxHighlightEnabled: 'Turn syntax highlighting colors for embedded code blocks on or off.'
+    };
+    const settingsActionTips = {
+      'nav-syntax': 'Open syntax highlighting color controls for embedded code tokens.',
+      'nav-ui-theme': 'Open panel UI color controls.'
     };
 
     panel.querySelectorAll('[data-page="home"] button[data-action]').forEach((btn) => {
@@ -2312,6 +2405,12 @@
         const label = row.querySelector('span');
         if (label instanceof HTMLElement) label.title = tip;
       }
+    });
+
+    panel.querySelectorAll('[data-page="settings"] button[data-action]').forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const tip = settingsActionTips[btn.dataset.action || ''];
+      if (tip) btn.title = tip;
     });
   }
 
@@ -2563,21 +2662,21 @@
             <label class="rabbit-row">
               <span>User responses + input bar</span>
               <span class="rabbit-range-wrap">
-                <input type="range" min="11" max="32" step="1" data-key="userFontSize" value="${settings.userFontSize}">
+                <input type="range" min="4" max="32" step="1" data-key="userFontSize" value="${settings.userFontSize}">
                 <span data-val="userFontSize">${settings.userFontSize}px</span>
               </span>
             </label>
             <label class="rabbit-row">
               <span>ChatGPT responses + headings</span>
               <span class="rabbit-range-wrap">
-                <input type="range" min="11" max="32" step="1" data-key="assistantFontSize" value="${settings.assistantFontSize}">
+                <input type="range" min="4" max="32" step="1" data-key="assistantFontSize" value="${settings.assistantFontSize}">
                 <span data-val="assistantFontSize">${settings.assistantFontSize}px</span>
               </span>
             </label>
             <label class="rabbit-row">
               <span>Sidebar font size</span>
               <span class="rabbit-range-wrap">
-                <input type="range" min="10" max="28" step="1" data-key="sidebarFontSize" value="${settings.sidebarFontSize}">
+                <input type="range" min="4" max="28" step="1" data-key="sidebarFontSize" value="${settings.sidebarFontSize}">
                 <span data-val="sidebarFontSize">${settings.sidebarFontSize}px</span>
               </span>
             </label>
@@ -2639,6 +2738,13 @@
               <span>Hide launcher until hover</span>
               <input type="checkbox" data-key="launcherHiddenUntilHover" ${settings.launcherHiddenUntilHover ? 'checked' : ''}>
             </label>
+            <label class="rabbit-row">
+              <span>Syntax highlighting (embedded code)</span>
+              <input type="checkbox" data-key="codeSyntaxHighlightEnabled" ${settings.codeSyntaxHighlightEnabled ? 'checked' : ''}>
+            </label>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="nav-syntax">Edit Syntax Colors</button>
+            </div>
           </div>
 
           <div class="rabbit-group">
@@ -2697,6 +2803,41 @@
               <span>Buttons</span>
               <input type="color" data-key="panelUiButton" value="${escapeHtml(settings.panelUiButton)}">
             </label>
+          </div>
+        </div>
+
+        <div class="rabbit-page" data-page="syntax">
+          <div class="rabbit-group">
+            <div class="rabbit-group-title">Embedded Code Syntax Colors</div>
+            <label class="rabbit-row">
+              <span>Keywords</span>
+              <input type="color" data-key="codeSyntaxKeyword" value="${escapeHtml(settings.codeSyntaxKeyword)}">
+            </label>
+            <label class="rabbit-row">
+              <span>Strings</span>
+              <input type="color" data-key="codeSyntaxString" value="${escapeHtml(settings.codeSyntaxString)}">
+            </label>
+            <label class="rabbit-row">
+              <span>Numbers</span>
+              <input type="color" data-key="codeSyntaxNumber" value="${escapeHtml(settings.codeSyntaxNumber)}">
+            </label>
+            <label class="rabbit-row">
+              <span>Comments</span>
+              <input type="color" data-key="codeSyntaxComment" value="${escapeHtml(settings.codeSyntaxComment)}">
+            </label>
+            <label class="rabbit-row">
+              <span>Functions</span>
+              <input type="color" data-key="codeSyntaxFunction" value="${escapeHtml(settings.codeSyntaxFunction)}">
+            </label>
+            <label class="rabbit-row">
+              <span>Types</span>
+              <input type="color" data-key="codeSyntaxType" value="${escapeHtml(settings.codeSyntaxType)}">
+            </label>
+            <label class="rabbit-row">
+              <span>Operators</span>
+              <input type="color" data-key="codeSyntaxOperator" value="${escapeHtml(settings.codeSyntaxOperator)}">
+            </label>
+            <div class="rabbit-note">Applies to common Prism and highlight.js token classes in embedded code blocks.</div>
           </div>
         </div>
       </div>
@@ -2858,6 +2999,12 @@
       if (action === 'nav-ui-theme') {
         settings.panelHidden = false;
         setActivePage(panel, 'ui-theme');
+        updatePanelHiddenState(panel);
+      }
+
+      if (action === 'nav-syntax') {
+        settings.panelHidden = false;
+        setActivePage(panel, 'syntax');
         updatePanelHiddenState(panel);
       }
 
