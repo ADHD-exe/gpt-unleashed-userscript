@@ -448,6 +448,10 @@
     };
   }
 
+  function getActiveThemeSnapshot() {
+    return getThemeSnapshotFromSettings(settings);
+  }
+
   function applyThemePresetToSettings(themePreset) {
     if (!themePreset || !themePreset.theme) return false;
     const normalizedTheme = normalizeThemeSnapshot(themePreset.theme);
@@ -1436,8 +1440,9 @@ Open the GitHub Raw install page now?`);
     const sidebarText = settings.themeSidebarEnabled ? settings.sidebarText : 'inherit';
     const sidebarHover = settings.themeSidebarEnabled ? settings.sidebarHover : 'inherit';
     const sidebarHoverText = settings.themeSidebarEnabled ? settings.sidebarHoverText : 'inherit';
-    const selectedTheme = getThemePresetById(settings.selectedThemePresetId) || getThemePresetById(defaults.selectedThemePresetId);
-    const matchedUi = settings.uiMatchThemeEnabled && selectedTheme ? derivePanelUiColorsFromTheme(selectedTheme.theme) : null;
+    const matchedUi = settings.uiMatchThemeEnabled
+      ? derivePanelUiColorsFromTheme(getActiveThemeSnapshot())
+      : null;
     const panelUiBg = matchedUi ? matchedUi.panelUiBg : settings.panelUiBg;
     const panelUiBubble = matchedUi ? matchedUi.panelUiBubble : settings.panelUiBubble;
     const panelUiFont = matchedUi ? matchedUi.panelUiFont : settings.panelUiFont;
@@ -3289,10 +3294,10 @@ Open the GitHub Raw install page now?`);
 
       if (key === 'uiMatchThemeEnabled') {
         if (settings.uiMatchThemeEnabled) {
-          const selectedPreset = getThemePresetById(settings.selectedThemePresetId) || getThemePresetById(defaults.selectedThemePresetId);
-          if (selectedPreset && selectedPreset.theme) {
-            Object.assign(settings, derivePanelUiColorsFromTheme(selectedPreset.theme));
-          }
+          Object.assign(settings, derivePanelUiColorsFromTheme(getActiveThemeSnapshot()));
+          ['panelUiBg', 'panelUiBubble', 'panelUiFont', 'panelUiOutline', 'panelUiButton'].forEach((uiKey) => {
+            syncColorControls(panel, uiKey, settings[uiKey]);
+          });
         }
         updateUiThemeControls(panel);
       }
@@ -3305,6 +3310,13 @@ Open the GitHub Raw install page now?`);
       }
       if (COLOR_KEYS.includes(key)) {
         syncColorControls(panel, key, settings[key]);
+      }
+
+      if (settings.uiMatchThemeEnabled && THEME_SETTING_KEYS.includes(key)) {
+        Object.assign(settings, derivePanelUiColorsFromTheme(getActiveThemeSnapshot()));
+        ['panelUiBg', 'panelUiBubble', 'panelUiFont', 'panelUiOutline', 'panelUiButton'].forEach((uiKey) => {
+          syncColorControls(panel, uiKey, settings[uiKey]);
+        });
       }
 
       scheduleSaveSettings();
