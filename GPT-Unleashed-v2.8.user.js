@@ -877,14 +877,34 @@
     return true;
   }
 
+  function removeSidebarDeleteButton(row) {
+    if (!(row instanceof HTMLElement)) return;
+    row.querySelectorAll('.rabbit-sidebar-delete-btn').forEach((btn) => btn.remove());
+  }
+
+  function isSidebarRowTooCompact(row) {
+    if (!(row instanceof HTMLElement)) return true;
+    const rect = row.getBoundingClientRect();
+    if (rect.width <= 140) return true;
+    const rowText = (row.textContent || '').replace(/\s+/g, ' ').trim();
+    return rowText.length <= 2;
+  }
+
   function ensureSidebarDeleteButtons() {
     const items = getSidebarChatItems();
     items.forEach((item) => {
       const row = item.row;
       if (!(row instanceof HTMLElement)) return;
-      if (row.querySelector('.rabbit-sidebar-delete-btn')) return;
       const menuButton = findMenuButtonForRow(row);
-      if (!(menuButton instanceof HTMLElement) || !menuButton.parentElement) return;
+      if (!(menuButton instanceof HTMLElement) || !menuButton.parentElement) {
+        removeSidebarDeleteButton(row);
+        return;
+      }
+      if (isSidebarRowTooCompact(row)) {
+        removeSidebarDeleteButton(row);
+        return;
+      }
+      if (row.querySelector('.rabbit-sidebar-delete-btn')) return;
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
       deleteBtn.className = 'rabbit-sidebar-delete-btn';
