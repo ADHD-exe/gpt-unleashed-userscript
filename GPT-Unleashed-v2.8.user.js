@@ -197,6 +197,17 @@
     return fallback;
   }
 
+  function sanitizeHexColor(value, fallback) {
+    if (typeof value !== 'string') return fallback;
+    const trimmed = value.trim();
+    const match = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(trimmed);
+    if (!match) return fallback;
+    const hex = match[1].length === 3
+      ? match[1].split('').map((char) => char + char).join('')
+      : match[1];
+    return `#${hex.toUpperCase()}`;
+  }
+
   function sanitizeFontFamily(value) {
     if (typeof value !== 'string') return defaults.chatFontFamily;
     const cleaned = value.replace(/[;{}]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -208,7 +219,7 @@
     const merged = { ...defaults, ...(input || {}) };
 
     for (const key of COLOR_KEYS) {
-      merged[key] = sanitizeColor(merged[key], defaults[key]);
+      merged[key] = sanitizeHexColor(merged[key], defaults[key]);
     }
 
     merged.chatFontFamily = sanitizeFontFamily(merged.chatFontFamily);
@@ -248,7 +259,7 @@
 
   function applySettingUpdate(key, value) {
     if (COLOR_KEYS.includes(key)) {
-      return sanitizeColor(value, defaults[key]);
+      return sanitizeHexColor(value, defaults[key]);
     }
     if (Object.prototype.hasOwnProperty.call(NUMERIC_RANGES, key)) {
       const range = NUMERIC_RANGES[key];
@@ -336,6 +347,35 @@
     const current = normalizeSettings(settings);
     const merged = normalizeSettings({ ...current, ...(input || {}) });
     return getThemeSnapshotFromSettings(merged);
+  }
+
+  function renderColorControl(key) {
+    const colorValue = sanitizeHexColor(settings[key], defaults[key]);
+    return `
+      <span class="rabbit-color-control">
+        <input type="color" data-key="${key}" value="${escapeHtml(colorValue)}">
+        <input
+          type="text"
+          class="rabbit-color-hex"
+          data-color-text-key="${key}"
+          value="${escapeHtml(colorValue)}"
+          spellcheck="false"
+          autocapitalize="off"
+          autocomplete="off"
+          placeholder="#RRGGBB"
+        >
+      </span>
+    `;
+  }
+
+  function syncColorControls(panel, key, value) {
+    const normalized = sanitizeHexColor(value, defaults[key]);
+    panel.querySelectorAll(`input[type="color"][data-key="${key}"]`).forEach((input) => {
+      if (input instanceof HTMLInputElement) input.value = normalized;
+    });
+    panel.querySelectorAll(`input[data-color-text-key="${key}"]`).forEach((input) => {
+      if (input instanceof HTMLInputElement) input.value = normalized;
+    });
   }
 
   function loadSavedThemes() {
@@ -2048,6 +2088,19 @@
         cursor: pointer;
       }
 
+      #${PANEL_ID} .rabbit-color-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      #${PANEL_ID} .rabbit-color-hex {
+        width: 84px;
+        box-sizing: border-box;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+        text-transform: uppercase;
+      }
+
       #${PANEL_ID} input[type="range"] {
         width: 96px;
       }
@@ -2548,11 +2601,11 @@
             </label>
             <label class="rabbit-row">
               <span>Background</span>
-              <input type="color" data-key="pageBg" value="${escapeHtml(settings.pageBg)}">
+              ${renderColorControl('pageBg')}
             </label>
             <label class="rabbit-row">
               <span>Text</span>
-              <input type="color" data-key="pageText" value="${escapeHtml(settings.pageText)}">
+              ${renderColorControl('pageText')}
             </label>
           </div>
 
@@ -2564,11 +2617,11 @@
             </label>
             <label class="rabbit-row">
               <span>Bubble background</span>
-              <input type="color" data-key="userBubbleBg" value="${escapeHtml(settings.userBubbleBg)}">
+              ${renderColorControl('userBubbleBg')}
             </label>
             <label class="rabbit-row">
               <span>Font color</span>
-              <input type="color" data-key="userBubbleText" value="${escapeHtml(settings.userBubbleText)}">
+              ${renderColorControl('userBubbleText')}
             </label>
           </div>
 
@@ -2580,11 +2633,11 @@
             </label>
             <label class="rabbit-row">
               <span>Bubble background</span>
-              <input type="color" data-key="assistantBubbleBg" value="${escapeHtml(settings.assistantBubbleBg)}">
+              ${renderColorControl('assistantBubbleBg')}
             </label>
             <label class="rabbit-row">
               <span>Font color</span>
-              <input type="color" data-key="assistantBubbleText" value="${escapeHtml(settings.assistantBubbleText)}">
+              ${renderColorControl('assistantBubbleText')}
             </label>
           </div>
 
@@ -2600,11 +2653,11 @@
             </label>
             <label class="rabbit-row">
               <span>Background</span>
-              <input type="color" data-key="embedBg" value="${escapeHtml(settings.embedBg)}">
+              ${renderColorControl('embedBg')}
             </label>
             <label class="rabbit-row">
               <span>Font color</span>
-              <input type="color" data-key="embedText" value="${escapeHtml(settings.embedText)}">
+              ${renderColorControl('embedText')}
             </label>
             <div class="rabbit-actions-row">
               <button type="button" data-action="nav-syntax-from-themes">Syntax Color Picker</button>
@@ -2619,11 +2672,11 @@
             </label>
             <label class="rabbit-row">
               <span>Bubble background</span>
-              <input type="color" data-key="composerBg" value="${escapeHtml(settings.composerBg)}">
+              ${renderColorControl('composerBg')}
             </label>
             <label class="rabbit-row">
               <span>Input text</span>
-              <input type="color" data-key="composerText" value="${escapeHtml(settings.composerText)}">
+              ${renderColorControl('composerText')}
             </label>
           </div>
 
@@ -2635,15 +2688,15 @@
             </label>
             <label class="rabbit-row">
               <span>Background</span>
-              <input type="color" data-key="sidebarBg" value="${escapeHtml(settings.sidebarBg)}">
+              ${renderColorControl('sidebarBg')}
             </label>
             <label class="rabbit-row">
               <span>Text</span>
-              <input type="color" data-key="sidebarText" value="${escapeHtml(settings.sidebarText)}">
+              ${renderColorControl('sidebarText')}
             </label>
             <label class="rabbit-row">
               <span>Link color</span>
-              <input type="color" data-key="sidebarLink" value="${escapeHtml(settings.sidebarLink)}">
+              ${renderColorControl('sidebarLink')}
             </label>
           </div>
         </div>
@@ -2857,23 +2910,23 @@
             <div class="rabbit-group-title">Panel UI Colors</div>
             <label class="rabbit-row">
               <span>Background</span>
-              <input type="color" data-key="panelUiBg" value="${escapeHtml(settings.panelUiBg)}">
+              ${renderColorControl('panelUiBg')}
             </label>
             <label class="rabbit-row">
               <span>Bubbles</span>
-              <input type="color" data-key="panelUiBubble" value="${escapeHtml(settings.panelUiBubble)}">
+              ${renderColorControl('panelUiBubble')}
             </label>
             <label class="rabbit-row">
               <span>Font</span>
-              <input type="color" data-key="panelUiFont" value="${escapeHtml(settings.panelUiFont)}">
+              ${renderColorControl('panelUiFont')}
             </label>
             <label class="rabbit-row">
               <span>Outlines</span>
-              <input type="color" data-key="panelUiOutline" value="${escapeHtml(settings.panelUiOutline)}">
+              ${renderColorControl('panelUiOutline')}
             </label>
             <label class="rabbit-row">
               <span>Buttons</span>
-              <input type="color" data-key="panelUiButton" value="${escapeHtml(settings.panelUiButton)}">
+              ${renderColorControl('panelUiButton')}
             </label>
           </div>
         </div>
@@ -2883,31 +2936,31 @@
             <div class="rabbit-group-title">Embedded Code Syntax Colors</div>
             <label class="rabbit-row">
               <span>Keywords</span>
-              <input type="color" data-key="codeSyntaxKeyword" value="${escapeHtml(settings.codeSyntaxKeyword)}">
+              ${renderColorControl('codeSyntaxKeyword')}
             </label>
             <label class="rabbit-row">
               <span>Strings</span>
-              <input type="color" data-key="codeSyntaxString" value="${escapeHtml(settings.codeSyntaxString)}">
+              ${renderColorControl('codeSyntaxString')}
             </label>
             <label class="rabbit-row">
               <span>Numbers</span>
-              <input type="color" data-key="codeSyntaxNumber" value="${escapeHtml(settings.codeSyntaxNumber)}">
+              ${renderColorControl('codeSyntaxNumber')}
             </label>
             <label class="rabbit-row">
               <span>Comments</span>
-              <input type="color" data-key="codeSyntaxComment" value="${escapeHtml(settings.codeSyntaxComment)}">
+              ${renderColorControl('codeSyntaxComment')}
             </label>
             <label class="rabbit-row">
               <span>Functions</span>
-              <input type="color" data-key="codeSyntaxFunction" value="${escapeHtml(settings.codeSyntaxFunction)}">
+              ${renderColorControl('codeSyntaxFunction')}
             </label>
             <label class="rabbit-row">
               <span>Types</span>
-              <input type="color" data-key="codeSyntaxType" value="${escapeHtml(settings.codeSyntaxType)}">
+              ${renderColorControl('codeSyntaxType')}
             </label>
             <label class="rabbit-row">
               <span>Operators</span>
-              <input type="color" data-key="codeSyntaxOperator" value="${escapeHtml(settings.codeSyntaxOperator)}">
+              ${renderColorControl('codeSyntaxOperator')}
             </label>
             <div class="rabbit-actions-row">
               <button type="button" data-action="syntax-save-return">Save</button>
@@ -2983,6 +3036,10 @@
         updatePanelHiddenState(panel);
       }
 
+      if (COLOR_KEYS.includes(key)) {
+        syncColorControls(panel, key, settings[key]);
+      }
+
       scheduleSaveSettings();
       applyStyles();
       scheduleRefresh(60);
@@ -3012,6 +3069,18 @@
     panel.addEventListener('change', (event) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) return;
+
+      if (target instanceof HTMLInputElement && target.dataset.colorTextKey) {
+        const key = target.dataset.colorTextKey;
+        if (!COLOR_KEYS.includes(key)) return;
+        const nextValue = sanitizeHexColor(target.value, settings[key]);
+        settings[key] = applySettingUpdate(key, nextValue);
+        syncColorControls(panel, key, settings[key]);
+        scheduleSaveSettings();
+        applyStyles();
+        scheduleRefresh(60);
+        return;
+      }
 
       if (target instanceof HTMLSelectElement && target.dataset.role === 'theme-select') {
         const presetId = target.value;
