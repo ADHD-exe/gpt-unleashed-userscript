@@ -619,40 +619,67 @@
     return null;
   }
 
-  function findDeleteMenuAction() {
-    const candidates = [...document.querySelectorAll('[role="menuitem"], button, div[role="button"]')];
+  function isElementVisible(node) {
+    if (!(node instanceof HTMLElement)) return false;
+    const style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = node.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+
+  function findOpenMenuRoot() {
+    const menu = [...document.querySelectorAll('[role="menu"]')]
+      .find((node) => node instanceof HTMLElement && isElementVisible(node));
+    if (menu instanceof HTMLElement) return menu;
+    return [...document.querySelectorAll('[data-radix-popper-content-wrapper], [data-state="open"]')]
+      .find((node) => node instanceof HTMLElement && isElementVisible(node)) || null;
+  }
+
+  function findDeleteMenuAction(menuRoot) {
+    const scope = menuRoot instanceof HTMLElement ? menuRoot : document;
+    const candidates = [...scope.querySelectorAll('[role="menuitem"], button, div[role="button"]')];
     return candidates.find((node) => {
-      if (!(node instanceof HTMLElement)) return false;
+      if (!(node instanceof HTMLElement) || !isElementVisible(node)) return false;
       const text = (node.textContent || '').trim().toLowerCase();
-      return text === 'delete' || text.includes('delete chat') || text.includes('delete conversation');
+      const aria = (node.getAttribute('aria-label') || '').trim().toLowerCase();
+      return text === 'delete' || text.includes('delete chat') || text.includes('delete conversation') || aria.includes('delete');
     }) || null;
   }
 
   function findConfirmDeleteAction() {
-    const candidates = [...document.querySelectorAll('button, [role="button"]')];
+    const openDialog = [...document.querySelectorAll('[role="alertdialog"], [role="dialog"]')]
+      .find((node) => node instanceof HTMLElement && isElementVisible(node));
+    const scope = openDialog instanceof HTMLElement ? openDialog : document;
+    const candidates = [...scope.querySelectorAll('button, [role="button"]')];
     return candidates.find((node) => {
-      if (!(node instanceof HTMLElement)) return false;
+      if (!(node instanceof HTMLElement) || !isElementVisible(node)) return false;
       const text = (node.textContent || '').trim().toLowerCase();
-      return text === 'delete' || text === 'confirm' || text.includes('yes, delete');
+      const aria = (node.getAttribute('aria-label') || '').trim().toLowerCase();
+      return text === 'delete' || text === 'confirm' || text.includes('yes, delete') || aria.includes('confirm') || aria.includes('delete');
     }) || null;
   }
 
   async function deleteChatFromSidebarItem(item) {
-    const row = item?.row;
+    const fallbackItem = item?.href
+      ? getSidebarChatItems().find((chat) => chat.href === item.href)
+      : null;
+    const targetItem = fallbackItem || item;
+    const row = targetItem?.row;
     if (!(row instanceof HTMLElement)) return false;
     const menuButton = findMenuButtonForRow(row);
     if (!(menuButton instanceof HTMLElement)) return false;
     menuButton.click();
-    await sleep(80);
-    const deleteAction = findDeleteMenuAction();
+    await sleep(180);
+    const menuRoot = findOpenMenuRoot();
+    const deleteAction = findDeleteMenuAction(menuRoot);
     if (!(deleteAction instanceof HTMLElement)) return false;
     deleteAction.click();
-    await sleep(120);
+    await sleep(220);
     const confirm = findConfirmDeleteAction();
     if (confirm instanceof HTMLElement) {
       confirm.click();
     }
-    await sleep(180);
+    await sleep(280);
     return true;
   }
 
