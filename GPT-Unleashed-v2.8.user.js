@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         GPT-Unleashed-v2.8.22
+// @name         GPT-Unleashed-v2.8.21
 // @namespace    https://openai.com/
-// @version      2.8.22
+// @version      2.8.21
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.22';
+  const SCRIPT_VERSION = '2.8.21';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -759,10 +759,6 @@
         position: relative !important;
       }
 
-      .rabbit-msg-shell {
-        border-radius: var(--rabbit-bubble-radius) !important;
-      }
-
       .rabbit-msg-user {
         background: var(--rabbit-user-bubble-bg) !important;
         color: var(--rabbit-user-bubble-text) !important;
@@ -1223,20 +1219,7 @@
       }
 
       #${PANEL_ID} input[type="range"] {
-        width: 82px;
-      }
-
-      #${PANEL_ID} .rabbit-range-wrap input[type="number"] {
-        width: 58px;
-        appearance: textfield;
-        border: 1px solid var(--rabbit-panel-outline);
-        background: var(--rabbit-panel-bubble);
-        color: var(--rabbit-panel-font);
-        border-radius: 6px;
-        padding: 2px 4px;
-        font-size: 11px;
-        line-height: 1.1;
-        box-sizing: border-box;
+        width: 96px;
       }
 
       #${PANEL_ID} textarea {
@@ -1549,7 +1532,6 @@
               <span>Corner radius</span>
               <span class="rabbit-range-wrap">
                 <input type="range" min="6" max="40" step="1" data-key="bubbleRadius" value="${settings.bubbleRadius}">
-                <input type="number" min="6" max="40" step="1" data-key="bubbleRadius" value="${settings.bubbleRadius}" inputmode="numeric">
                 <span data-val="bubbleRadius">${settings.bubbleRadius}px</span>
               </span>
             </label>
@@ -1558,7 +1540,6 @@
               <span>Max width</span>
               <span class="rabbit-range-wrap">
                 <input type="range" min="260" max="1200" step="10" data-key="bubbleMaxWidth" value="${settings.bubbleMaxWidth}">
-                <input type="number" min="260" max="1200" step="10" data-key="bubbleMaxWidth" value="${settings.bubbleMaxWidth}" inputmode="numeric">
                 <span data-val="bubbleMaxWidth">${settings.bubbleMaxWidth}px</span>
               </span>
             </label>
@@ -1567,7 +1548,6 @@
               <span>Padding Y</span>
               <span class="rabbit-range-wrap">
                 <input type="range" min="6" max="28" step="1" data-key="bubblePaddingY" value="${settings.bubblePaddingY}">
-                <input type="number" min="6" max="28" step="1" data-key="bubblePaddingY" value="${settings.bubblePaddingY}" inputmode="numeric">
                 <span data-val="bubblePaddingY">${settings.bubblePaddingY}px</span>
               </span>
             </label>
@@ -1576,7 +1556,6 @@
               <span>Padding X</span>
               <span class="rabbit-range-wrap">
                 <input type="range" min="8" max="40" step="1" data-key="bubblePaddingX" value="${settings.bubblePaddingX}">
-                <input type="number" min="8" max="40" step="1" data-key="bubblePaddingX" value="${settings.bubblePaddingX}" inputmode="numeric">
                 <span data-val="bubblePaddingX">${settings.bubblePaddingX}px</span>
               </span>
             </label>
@@ -1739,34 +1718,13 @@
       const key = t.dataset.key;
       if (!key) return;
 
-      let nextValue;
       if (t instanceof HTMLInputElement) {
-        if (t.type === 'checkbox') {
-          nextValue = t.checked;
-        } else if (t.type === 'range') {
-          nextValue = Number(t.value);
-        } else if (t.type === 'number') {
-          if (t.value.trim() === '') return;
-          const parsed = Number(t.value);
-          if (!Number.isFinite(parsed)) return;
-          nextValue = parsed;
-        } else {
-          nextValue = t.value;
-        }
-        settings[key] = applySettingUpdate(key, nextValue);
+        const value = t.type === 'checkbox' ? t.checked : (t.type === 'range' ? Number(t.value) : t.value);
+        settings[key] = applySettingUpdate(key, value);
       } else if (t instanceof HTMLSelectElement) {
         settings[key] = applySettingUpdate(key, t.value);
       } else {
         return;
-      }
-
-      if (Object.prototype.hasOwnProperty.call(NUMERIC_RANGES, key)) {
-        panel.querySelectorAll(`input[data-key="${key}"]`).forEach((inputEl) => {
-          if (inputEl === t) return;
-          if (!(inputEl instanceof HTMLInputElement)) return;
-          if (inputEl.type !== 'range' && inputEl.type !== 'number') return;
-          inputEl.value = String(settings[key]);
-        });
       }
 
       const readout = panel.querySelector(`[data-val="${key}"]`);
@@ -2255,37 +2213,16 @@
     }
   }
 
-  function getMessageShellNodes(target, roleRoot) {
-    const shells = [];
-    let current = target;
-    let depth = 0;
-
-    while (current instanceof HTMLElement && depth < 8) {
-      shells.push(current);
-      if (current === roleRoot) break;
-      current = current.parentElement;
-      depth += 1;
-    }
-
-    return shells;
-  }
-
-  function pruneOldTargets(validTargets, validShells) {
+  function pruneOldTargets(validTargets) {
     document.querySelectorAll('.rabbit-msg-target').forEach((el) => {
       if (validTargets.has(el)) return;
       el.classList.remove('rabbit-msg-target', 'rabbit-msg-user', 'rabbit-msg-assistant');
-    });
-
-    document.querySelectorAll('.rabbit-msg-shell').forEach((el) => {
-      if (validShells.has(el)) return;
-      el.classList.remove('rabbit-msg-shell');
     });
   }
 
   function refreshMessageStyling() {
     const roleRoots = document.querySelectorAll('[data-message-author-role]');
     const validTargets = new Set();
-    const validShells = new Set();
 
     roleRoots.forEach((root) => {
       if (!(root instanceof HTMLElement)) return;
@@ -2298,15 +2235,10 @@
       if (!target) return;
 
       applyClassesToTarget(target, role);
-      const shells = getMessageShellNodes(target, root);
-      shells.forEach((shell) => {
-        shell.classList.add('rabbit-msg-shell');
-        validShells.add(shell);
-      });
       validTargets.add(target);
     });
 
-    pruneOldTargets(validTargets, validShells);
+    pruneOldTargets(validTargets);
   }
 
   function getComposerInputCandidates() {
