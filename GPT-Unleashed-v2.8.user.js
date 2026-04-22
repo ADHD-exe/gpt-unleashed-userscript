@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         GPT-Unleashed-v2.8.22
+// @name         GPT-Unleashed
 // @namespace    https://openai.com/
 // @version      2.8.23
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
