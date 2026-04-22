@@ -2860,7 +2860,6 @@
               <span>Hide launcher until hover</span>
               <input type="checkbox" data-key="launcherHiddenUntilHover" ${settings.launcherHiddenUntilHover ? 'checked' : ''}>
             </label>
-            </div>
           </div>
 
           <div class="rabbit-group">
