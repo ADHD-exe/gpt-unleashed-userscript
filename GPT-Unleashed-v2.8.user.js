@@ -515,39 +515,38 @@
       return btn;
     };
 
-    menu.appendChild(makeActionButton('Asking', 'composer-menu-asking'));
-    menu.appendChild(makeActionButton('Favorite prompts', 'composer-menu-favorites'));
-    menu.appendChild(makeActionButton('All Prompts', 'composer-menu-all'));
-    menu.appendChild(makeActionButton('Create New Prompt', 'composer-menu-create'));
+    const normalizedMode = mode === 'all' ? 'all' : 'favorites';
 
-    if (mode === 'favorites' || mode === 'all') {
-      const source = mode === 'favorites' ? getFavoritePrompts() : prompts;
-      const listWrap = document.createElement('div');
-      listWrap.className = 'rabbit-composer-menu-list';
+    const toggleBtnLabel = normalizedMode === 'favorites'
+      ? 'View All Prompts'
+      : 'View Favorite Prompts';
+    const toggleBtnAction = normalizedMode === 'favorites'
+      ? 'composer-menu-all'
+      : 'composer-menu-favorites';
+    menu.appendChild(makeActionButton(toggleBtnLabel, toggleBtnAction));
 
-      if (!source.length) {
-        const empty = document.createElement('div');
-        empty.className = 'rabbit-composer-menu-empty';
-        empty.textContent = mode === 'favorites' ? 'No favorite prompts yet.' : 'No saved prompts yet.';
-        listWrap.appendChild(empty);
-      } else {
-        source.slice(0, 18).forEach((prompt) => {
-          const btn = makeActionButton(prompt.title, 'composer-menu-insert', prompt.id);
-          btn.title = prompt.text;
-          listWrap.appendChild(btn);
-        });
-      }
-      menu.appendChild(listWrap);
+    const source = normalizedMode === 'favorites' ? getFavoritePrompts() : prompts;
+    const listWrap = document.createElement('div');
+    listWrap.className = 'rabbit-composer-menu-list';
+
+    if (!source.length) {
+      const empty = document.createElement('div');
+      empty.className = 'rabbit-composer-menu-empty';
+      empty.textContent = normalizedMode === 'favorites' ? 'No favorite prompts yet.' : 'No saved prompts yet.';
+      listWrap.appendChild(empty);
+    } else {
+      source.slice(0, 18).forEach((prompt) => {
+        const btn = makeActionButton(prompt.title, 'composer-menu-insert', prompt.id);
+        btn.title = prompt.text;
+        listWrap.appendChild(btn);
+      });
     }
+    menu.appendChild(listWrap);
+    menu.appendChild(makeActionButton('Create New Prompt', 'composer-menu-create'));
 
     menu.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => {
         const action = btn.dataset.action;
-        if (action === 'composer-menu-asking') {
-          closeComposerPromptMenus();
-          if (input instanceof HTMLElement) input.focus();
-          return;
-        }
         if (action === 'composer-menu-favorites') {
           buildComposerPromptMenu(menu, 'favorites', input);
           menu.classList.add('open');
@@ -597,73 +596,6 @@
     btn.dataset.bound = '1';
 
     btn.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      const opening = !menu.classList.contains('open');
-      closeComposerPromptMenus();
-      if (!opening) return;
-      buildComposerPromptMenu(menu, 'root', input);
-      menu.classList.add('open');
-      menu.setAttribute('aria-hidden', 'false');
-    });
-  }
-
-  function findComposerAttachButton(shell) {
-    if (!(shell instanceof HTMLElement)) return null;
-
-    const buttons = shell.querySelectorAll('button');
-    const candidates = [];
-
-    buttons.forEach((btn) => {
-      if (!(btn instanceof HTMLButtonElement)) return;
-
-      const hint = [
-        btn.getAttribute('aria-label') || '',
-        btn.getAttribute('title') || '',
-        btn.textContent || ''
-      ].join(' ').toLowerCase();
-
-      let score = 0;
-      if (/(attach|upload|file|add|plus)/.test(hint)) score += 50;
-      if (hint.trim() === '+') score += 60;
-      if (btn.querySelector('svg')) score += 8;
-      if (btn.getBoundingClientRect().width <= 40) score += 6;
-
-      if (score > 0) {
-        candidates.push({ btn, score });
-      }
-    });
-
-    if (!candidates.length) return null;
-    candidates.sort((a, b) => b.score - a.score);
-    return candidates[0].btn;
-  }
-
-  function ensureComposerInlinePromptButton(shell, input) {
-    if (!(shell instanceof HTMLElement)) return;
-    if (!(input instanceof HTMLElement)) return;
-
-    const attachButton = findComposerAttachButton(shell);
-    if (!(attachButton instanceof HTMLButtonElement) || !(attachButton.parentElement instanceof HTMLElement)) return;
-
-    let promptBtn = attachButton.parentElement.querySelector('.rabbit-composer-inline-prompt-btn');
-    if (!(promptBtn instanceof HTMLButtonElement)) {
-      promptBtn = document.createElement('button');
-      promptBtn.type = 'button';
-      promptBtn.className = 'rabbit-composer-inline-prompt-btn';
-      promptBtn.setAttribute('aria-label', 'Prompt tools');
-      promptBtn.title = 'Prompt tools';
-      promptBtn.textContent = '</>';
-      attachButton.insertAdjacentElement('afterend', promptBtn);
-    }
-
-    if (promptBtn.dataset.bound === '1') return;
-    promptBtn.dataset.bound = '1';
-
-    const menu = shell.querySelector('.rabbit-composer-prompt-menu');
-    if (!(menu instanceof HTMLElement)) return;
-
-    promptBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       const opening = !menu.classList.contains('open');
@@ -1247,22 +1179,6 @@
         font-weight: 700;
         line-height: 1;
         cursor: pointer;
-      }
-
-      .rabbit-composer-inline-prompt-btn {
-        appearance: none;
-        border: 1px solid rgba(255,255,255,0.24);
-        background: color-mix(in srgb, var(--rabbit-composer-bg) 35%, #16161f);
-        color: var(--rabbit-composer-text);
-        border-radius: 999px;
-        min-width: 28px;
-        height: 28px;
-        padding: 0 7px;
-        font-size: 11px;
-        font-weight: 700;
-        margin-left: 6px;
-        cursor: pointer;
-        vertical-align: middle;
       }
 
       .rabbit-composer-prompt-menu {
@@ -3200,7 +3116,6 @@
       if (shell instanceof HTMLElement) {
         shell.classList.add('rabbit-composer-shell');
         ensureComposerPromptDock(shell, input);
-        ensureComposerInlinePromptButton(shell, input);
       }
       input.classList.add('rabbit-composer-input');
     }
