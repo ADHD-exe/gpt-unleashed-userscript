@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GPT-Unleashed-v2.8.22
 // @namespace    https://openai.com/
-// @version      2.8.22
+// @version      2.8.23
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.22';
+  const SCRIPT_VERSION = '2.8.23';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -54,6 +54,7 @@
     sidebarBg: '#000000',
     sidebarText: '#c466ff',
     sidebarHover: '#ff00ff',
+    sidebarHoverText: '#c466ff',
 
     chatTextAlign: 'left',
     chatFontFamily: 'inherit',
@@ -70,6 +71,7 @@
     layoutTrackFillEnabled: true,
     layoutSliderSkinEnabled: true,
     layoutAdvancedControlsEnabled: true,
+    layoutEmbedAlignmentLock: true,
 
     featureThemeEnabled: true,
     featureFontEnabled: true,
@@ -110,6 +112,7 @@
     'sidebarBg',
     'sidebarText',
     'sidebarHover',
+    'sidebarHoverText',
     'panelUiBg',
     'panelUiBubble',
     'panelUiFont',
@@ -135,18 +138,19 @@
     'composerText',
     'sidebarBg',
     'sidebarText',
-    'sidebarHover'
+    'sidebarHover',
+    'sidebarHoverText'
   ];
   const BUILTIN_THEME_PRESETS = [
-    { id: 'builtin-default', name: 'Default Theme', theme: { pageBg: defaults.pageBg, pageText: defaults.pageText, userBubbleBg: defaults.userBubbleBg, userBubbleText: defaults.userBubbleText, assistantBubbleBg: defaults.assistantBubbleBg, assistantBubbleText: defaults.assistantBubbleText, embedBg: defaults.embedBg, embedText: defaults.embedText, composerBg: defaults.composerBg, composerText: defaults.composerText, sidebarBg: defaults.sidebarBg, sidebarText: defaults.sidebarText, sidebarHover: defaults.sidebarHover } },
-    { id: 'builtin-midnight-oled', name: 'Midnight OLED', theme: { pageBg: '#000000', pageText: '#f4f8ff', userBubbleBg: '#0e1628', userBubbleText: '#d8e7ff', assistantBubbleBg: '#121212', assistantBubbleText: '#f1f1f1', embedBg: '#111827', embedText: '#dbeafe', composerBg: '#0b1220', composerText: '#e2e8f0', sidebarBg: '#030712', sidebarText: '#cbd5e1', sidebarHover: '#60a5fa' } },
-    { id: 'builtin-dracula', name: 'Dracula', theme: { pageBg: '#282a36', pageText: '#f8f8f2', userBubbleBg: '#44475a', userBubbleText: '#f8f8f2', assistantBubbleBg: '#6272a4', assistantBubbleText: '#f8f8f2', embedBg: '#1f2230', embedText: '#bd93f9', composerBg: '#343746', composerText: '#ff79c6', sidebarBg: '#21222c', sidebarText: '#f8f8f2', sidebarHover: '#8be9fd' } },
-    { id: 'builtin-nord', name: 'Nord', theme: { pageBg: '#2e3440', pageText: '#eceff4', userBubbleBg: '#4c566a', userBubbleText: '#eceff4', assistantBubbleBg: '#3b4252', assistantBubbleText: '#d8dee9', embedBg: '#434c5e', embedText: '#88c0d0', composerBg: '#3b4252', composerText: '#e5e9f0', sidebarBg: '#2b303b', sidebarText: '#d8dee9', sidebarHover: '#81a1c1' } },
-    { id: 'builtin-github-dark', name: 'GitHub Dark', theme: { pageBg: '#0d1117', pageText: '#c9d1d9', userBubbleBg: '#21262d', userBubbleText: '#e6edf3', assistantBubbleBg: '#161b22', assistantBubbleText: '#c9d1d9', embedBg: '#30363d', embedText: '#c9d1d9', composerBg: '#0f141b', composerText: '#e6edf3', sidebarBg: '#010409', sidebarText: '#c9d1d9', sidebarHover: '#58a6ff' } },
-    { id: 'builtin-solarized-dark', name: 'Solarized Dark', theme: { pageBg: '#002b36', pageText: '#93a1a1', userBubbleBg: '#073642', userBubbleText: '#eee8d5', assistantBubbleBg: '#0b3a46', assistantBubbleText: '#93a1a1', embedBg: '#0f414b', embedText: '#b58900', composerBg: '#08333d', composerText: '#2aa198', sidebarBg: '#001f27', sidebarText: '#93a1a1', sidebarHover: '#268bd2' } },
-    { id: 'builtin-catppuccin-mocha', name: 'Catppuccin Mocha', theme: { pageBg: '#1e1e2e', pageText: '#cdd6f4', userBubbleBg: '#45475a', userBubbleText: '#cdd6f4', assistantBubbleBg: '#313244', assistantBubbleText: '#cdd6f4', embedBg: '#585b70', embedText: '#f9e2af', composerBg: '#313244', composerText: '#89dceb', sidebarBg: '#181825', sidebarText: '#bac2de', sidebarHover: '#89b4fa' } },
-    { id: 'builtin-notion-light', name: 'Notion Light', theme: { pageBg: '#f7f6f3', pageText: '#37352f', userBubbleBg: '#e9e5dc', userBubbleText: '#2f2d28', assistantBubbleBg: '#ffffff', assistantBubbleText: '#37352f', embedBg: '#efebe4', embedText: '#5b5a56', composerBg: '#ffffff', composerText: '#2f2d28', sidebarBg: '#fbfaf8', sidebarText: '#5f5b53', sidebarHover: '#2f76db' } },
-    { id: 'builtin-synthwave-neon', name: 'Synthwave Neon', theme: { pageBg: '#120422', pageText: '#f5d9ff', userBubbleBg: '#2b0d4d', userBubbleText: '#ff9de2', assistantBubbleBg: '#1a1336', assistantBubbleText: '#9efcff', embedBg: '#220a3d', embedText: '#f9ff66', composerBg: '#2d0f45', composerText: '#a9ff68', sidebarBg: '#0a0318', sidebarText: '#d8b7ff', sidebarHover: '#54f7ff' } }
+    { id: 'builtin-default', name: 'Default Theme', theme: { pageBg: defaults.pageBg, pageText: defaults.pageText, userBubbleBg: defaults.userBubbleBg, userBubbleText: defaults.userBubbleText, assistantBubbleBg: defaults.assistantBubbleBg, assistantBubbleText: defaults.assistantBubbleText, embedBg: defaults.embedBg, embedText: defaults.embedText, composerBg: defaults.composerBg, composerText: defaults.composerText, sidebarBg: defaults.sidebarBg, sidebarText: defaults.sidebarText, sidebarHover: defaults.sidebarHover, sidebarHoverText: defaults.sidebarHoverText } },
+    { id: 'builtin-midnight-oled', name: 'Midnight OLED', theme: { pageBg: '#000000', pageText: '#f4f8ff', userBubbleBg: '#0e1628', userBubbleText: '#d8e7ff', assistantBubbleBg: '#121212', assistantBubbleText: '#f1f1f1', embedBg: '#111827', embedText: '#dbeafe', composerBg: '#0b1220', composerText: '#e2e8f0', sidebarBg: '#030712', sidebarText: '#cbd5e1', sidebarHover: '#60a5fa', sidebarHoverText: '#dbeafe' } },
+    { id: 'builtin-dracula', name: 'Dracula', theme: { pageBg: '#282a36', pageText: '#f8f8f2', userBubbleBg: '#44475a', userBubbleText: '#f8f8f2', assistantBubbleBg: '#6272a4', assistantBubbleText: '#f8f8f2', embedBg: '#1f2230', embedText: '#bd93f9', composerBg: '#343746', composerText: '#ff79c6', sidebarBg: '#21222c', sidebarText: '#f8f8f2', sidebarHover: '#8be9fd', sidebarHoverText: '#282a36' } },
+    { id: 'builtin-nord', name: 'Nord', theme: { pageBg: '#2e3440', pageText: '#eceff4', userBubbleBg: '#4c566a', userBubbleText: '#eceff4', assistantBubbleBg: '#3b4252', assistantBubbleText: '#d8dee9', embedBg: '#434c5e', embedText: '#88c0d0', composerBg: '#3b4252', composerText: '#e5e9f0', sidebarBg: '#2b303b', sidebarText: '#d8dee9', sidebarHover: '#81a1c1', sidebarHoverText: '#eceff4' } },
+    { id: 'builtin-github-dark', name: 'GitHub Dark', theme: { pageBg: '#0d1117', pageText: '#c9d1d9', userBubbleBg: '#21262d', userBubbleText: '#e6edf3', assistantBubbleBg: '#161b22', assistantBubbleText: '#c9d1d9', embedBg: '#30363d', embedText: '#c9d1d9', composerBg: '#0f141b', composerText: '#e6edf3', sidebarBg: '#010409', sidebarText: '#c9d1d9', sidebarHover: '#58a6ff', sidebarHoverText: '#0d1117' } },
+    { id: 'builtin-solarized-dark', name: 'Solarized Dark', theme: { pageBg: '#002b36', pageText: '#93a1a1', userBubbleBg: '#073642', userBubbleText: '#eee8d5', assistantBubbleBg: '#0b3a46', assistantBubbleText: '#93a1a1', embedBg: '#0f414b', embedText: '#b58900', composerBg: '#08333d', composerText: '#2aa198', sidebarBg: '#001f27', sidebarText: '#93a1a1', sidebarHover: '#268bd2', sidebarHoverText: '#fdf6e3' } },
+    { id: 'builtin-catppuccin-mocha', name: 'Catppuccin Mocha', theme: { pageBg: '#1e1e2e', pageText: '#cdd6f4', userBubbleBg: '#45475a', userBubbleText: '#cdd6f4', assistantBubbleBg: '#313244', assistantBubbleText: '#cdd6f4', embedBg: '#585b70', embedText: '#f9e2af', composerBg: '#313244', composerText: '#89dceb', sidebarBg: '#181825', sidebarText: '#bac2de', sidebarHover: '#89b4fa', sidebarHoverText: '#1e1e2e' } },
+    { id: 'builtin-notion-light', name: 'Notion Light', theme: { pageBg: '#f7f6f3', pageText: '#37352f', userBubbleBg: '#e9e5dc', userBubbleText: '#2f2d28', assistantBubbleBg: '#ffffff', assistantBubbleText: '#37352f', embedBg: '#efebe4', embedText: '#5b5a56', composerBg: '#ffffff', composerText: '#2f2d28', sidebarBg: '#fbfaf8', sidebarText: '#5f5b53', sidebarHover: '#2f76db', sidebarHoverText: '#ffffff' } },
+    { id: 'builtin-synthwave-neon', name: 'Synthwave Neon', theme: { pageBg: '#120422', pageText: '#f5d9ff', userBubbleBg: '#2b0d4d', userBubbleText: '#ff9de2', assistantBubbleBg: '#1a1336', assistantBubbleText: '#9efcff', embedBg: '#220a3d', embedText: '#f9ff66', composerBg: '#2d0f45', composerText: '#a9ff68', sidebarBg: '#0a0318', sidebarText: '#d8b7ff', sidebarHover: '#54f7ff', sidebarHoverText: '#120422' } }
   ];
 
   const NUMERIC_RANGES = {
@@ -235,6 +239,7 @@
     merged.layoutTrackFillEnabled = !!merged.layoutTrackFillEnabled;
     merged.layoutSliderSkinEnabled = !!merged.layoutSliderSkinEnabled;
     merged.layoutAdvancedControlsEnabled = !!merged.layoutAdvancedControlsEnabled;
+    merged.layoutEmbedAlignmentLock = !!merged.layoutEmbedAlignmentLock;
     merged.codeSyntaxHighlightEnabled = !!merged.codeSyntaxHighlightEnabled;
     merged.uiMatchThemeEnabled = !!merged.uiMatchThemeEnabled;
     merged.panelPage = PANEL_PAGES.has(merged.panelPage) ? merged.panelPage : defaults.panelPage;
@@ -271,6 +276,7 @@
       'layoutTrackFillEnabled',
       'layoutSliderSkinEnabled',
       'layoutAdvancedControlsEnabled',
+      'layoutEmbedAlignmentLock',
       'codeSyntaxHighlightEnabled',
       'uiMatchThemeEnabled'
     ].includes(key)) {
@@ -849,6 +855,47 @@
     if (open) renderDeleteChatsList(panel);
   }
 
+  function renderExportChatsList(panel) {
+    const list = panel.querySelector('[data-role="export-chats-list"]');
+    if (!(list instanceof HTMLElement)) return;
+    const chats = getSidebarChatItems();
+    list.innerHTML = '';
+    if (!chats.length) {
+      const empty = document.createElement('div');
+      empty.className = 'rabbit-note';
+      empty.textContent = 'No chats found in the sidebar.';
+      list.appendChild(empty);
+      return;
+    }
+
+    chats.forEach((chat, index) => {
+      const row = document.createElement('label');
+      row.className = 'rabbit-chat-item';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.dataset.role = 'export-chat-check';
+      checkbox.dataset.chatHref = chat.href;
+      checkbox.dataset.chatIndex = String(index);
+
+      const title = document.createElement('span');
+      title.textContent = chat.title;
+      title.title = chat.href;
+
+      row.appendChild(checkbox);
+      row.appendChild(title);
+      list.appendChild(row);
+    });
+  }
+
+  function setExportChatsModalOpen(panel, open) {
+    const modal = panel.querySelector('[data-role="export-chats-modal"]');
+    if (!(modal instanceof HTMLElement)) return;
+    modal.classList.toggle('open', !!open);
+    modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) renderExportChatsList(panel);
+  }
+
   function formatTimestampForFilename(date) {
     const pad = (value) => String(value).padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}`;
@@ -876,22 +923,19 @@
     return text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   }
 
-  function exportChatAsMarkdown() {
-    const titleRaw = (document.title || 'ChatGPT Chat').replace(/\s*\\|\\s*ChatGPT.*$/i, '').trim();
+  function extractChatMarkdownFromDocument(doc, chatUrl = location.href) {
+    const titleRaw = (doc.title || 'ChatGPT Chat').replace(/\s*\\|\\s*ChatGPT.*$/i, '').trim();
     const title = titleRaw || 'ChatGPT Chat';
     const timestamp = new Date();
-    const filenameBase = sanitizeFilename(title) || 'ChatGPT-Chat';
-    const filename = `${filenameBase}-${formatTimestampForFilename(timestamp)}.md`;
-
     const lines = [
       `# ${title}`,
       '',
       `- Exported: ${timestamp.toISOString()}`,
-      `- URL: ${location.href}`,
+      `- URL: ${chatUrl}`,
       ''
     ];
 
-    const roleRoots = document.querySelectorAll('[data-message-author-role]');
+    const roleRoots = doc.querySelectorAll('[data-message-author-role]');
     roleRoots.forEach((root) => {
       if (!(root instanceof HTMLElement)) return;
       const role = root.getAttribute('data-message-author-role');
@@ -902,8 +946,41 @@
       lines.push(`## ${role === 'user' ? 'User' : 'Assistant'}`, '', text, '', '---', '');
     });
 
-    const content = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+    if (lines.length <= 5) {
+      lines.push('No message content could be parsed from this page.', '');
+    }
+
+    return {
+      title,
+      content: lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n'
+    };
+  }
+
+  function exportChatAsMarkdown() {
+    const { title, content } = extractChatMarkdownFromDocument(document, location.href);
+    const timestamp = new Date();
+    const filenameBase = sanitizeFilename(title) || 'ChatGPT-Chat';
+    const filename = `${filenameBase}-${formatTimestampForFilename(timestamp)}.md`;
     downloadTextFile(filename, content, 'text/markdown');
+  }
+
+  async function exportChatByHref(chat) {
+    const url = chat?.href;
+    if (!url) return false;
+    try {
+      const response = await fetch(url, { credentials: 'include' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const html = await response.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const { title, content } = extractChatMarkdownFromDocument(doc, url);
+      const filenameBase = sanitizeFilename(chat.title || title) || sanitizeFilename(title) || 'ChatGPT-Chat';
+      const filename = `${filenameBase}-${formatTimestampForFilename(new Date())}.md`;
+      downloadTextFile(filename, content, 'text/markdown');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function exportScriptAndSettings() {
@@ -1256,6 +1333,7 @@
     const sidebarBg = settings.themeSidebarEnabled ? settings.sidebarBg : 'transparent';
     const sidebarText = settings.themeSidebarEnabled ? settings.sidebarText : 'inherit';
     const sidebarHover = settings.themeSidebarEnabled ? settings.sidebarHover : 'inherit';
+    const sidebarHoverText = settings.themeSidebarEnabled ? settings.sidebarHoverText : 'inherit';
     const selectedTheme = getThemePresetById(settings.selectedThemePresetId) || getThemePresetById(defaults.selectedThemePresetId);
     const matchedUi = settings.uiMatchThemeEnabled && selectedTheme ? derivePanelUiColorsFromTheme(selectedTheme.theme) : null;
     const panelUiBg = matchedUi ? matchedUi.panelUiBg : settings.panelUiBg;
@@ -1402,6 +1480,26 @@
       div[class*="left"][class*="rail"] a:hover,
       div[class*="left"][class*="rail"] button:hover {
         background: var(--rabbit-sidebar-hover) !important;
+        color: var(--rabbit-sidebar-hover-text) !important;
+      }
+
+      body > div nav:first-of-type a:hover *,
+      body > div nav:first-of-type button:hover *,
+      aside[class*="sidebar"] a:hover *,
+      aside[class*="sidebar"] button:hover *,
+      aside[data-testid*="sidebar"] a:hover *,
+      aside[data-testid*="sidebar"] button:hover *,
+      div[data-testid*="sidebar"] a:hover *,
+      div[data-testid*="sidebar"] button:hover *,
+      div[class*="sidebar"][class*="open"] a:hover *,
+      div[class*="sidebar"][class*="open"] button:hover *,
+      div[class*="sidebar"][class*="panel"] a:hover *,
+      div[class*="sidebar"][class*="panel"] button:hover *,
+      div[class*="left"][class*="panel"] a:hover *,
+      div[class*="left"][class*="panel"] button:hover *,
+      div[class*="left"][class*="rail"] a:hover *,
+      div[class*="left"][class*="rail"] button:hover * {
+        color: var(--rabbit-sidebar-hover-text) !important;
       }
 
       body > div nav:first-of-type a,
@@ -1702,6 +1800,7 @@
         --rabbit-sidebar-bg: ${sidebarBg};
         --rabbit-sidebar-text: ${sidebarText};
         --rabbit-sidebar-hover: ${sidebarHover};
+        --rabbit-sidebar-hover-text: ${sidebarHoverText};
 
         --rabbit-chat-text-align: ${settings.chatTextAlign};
         --rabbit-chat-font-family: ${fontValue};
@@ -1786,6 +1885,7 @@
         text-align: var(--rabbit-chat-text-align) !important;
       }
 
+      ${settings.layoutEmbedAlignmentLock ? '' : `
       .rabbit-embed-scope pre,
       .rabbit-embed-scope pre *,
       .rabbit-embed-scope blockquote,
@@ -1801,6 +1901,7 @@
       .rabbit-embed-scope span code {
         text-align: var(--rabbit-chat-text-align) !important;
       }
+      `}
 
       .rabbit-msg-user,
       .rabbit-msg-user *,
@@ -2428,7 +2529,7 @@
       'nav-layout': 'Open controls for alignment, radius, width, padding, and slider behavior.',
       'nav-font': 'Adjust font family and font sizes across chat and sidebar.',
       'nav-prompts': 'Manage saved prompts and insert them into chats quickly.',
-      'export-chat': 'Download the active chat as a Markdown file.',
+      'export-chat': 'Select one or more chats from the sidebar and export them as Markdown files.',
       'delete-chats-open': 'Select and delete sidebar chats from a checklist.',
       'nav-settings': 'Open feature toggles, panel options, and userscript export.'
     };
@@ -2442,7 +2543,8 @@
       layoutWheelAdjustEnabled: 'Allows mouse-wheel nudging on layout sliders.',
       layoutTrackFillEnabled: 'Displays filled track progress for each layout slider.',
       layoutSliderSkinEnabled: 'Uses custom slider visuals on the Layout page.',
-      layoutAdvancedControlsEnabled: 'Shows or hides advanced layout utility controls.'
+      layoutAdvancedControlsEnabled: 'Shows or hides advanced layout utility controls.',
+      layoutEmbedAlignmentLock: "Keeps embedded blocks at their native alignment even if chat alignment changes."
     };
     const layoutActionTips = {
       reset: 'Restore all settings to defaults.',
@@ -2695,6 +2797,10 @@
               <span>Hover color</span>
               ${renderColorControl('sidebarHover')}
             </label>
+            <label class="rabbit-row">
+              <span>Hover font color</span>
+              ${renderColorControl('sidebarHoverText')}
+            </label>
           </div>
         </div>
 
@@ -2708,6 +2814,10 @@
                 <option value="center" ${settings.chatTextAlign === 'center' ? 'selected' : ''}>Center</option>
                 <option value="right" ${settings.chatTextAlign === 'right' ? 'selected' : ''}>Right</option>
               </select>
+            </label>
+            <label class="rabbit-row">
+              <span>Embedded text isn't effected by alignment changes</span>
+              <input type="checkbox" data-key="layoutEmbedAlignmentLock" ${settings.layoutEmbedAlignmentLock ? 'checked' : ''}>
             </label>
             <label class="rabbit-row">
               <span>Corner radius</span>
@@ -2937,6 +3047,19 @@
             <button type="button" data-action="delete-chats-unselect-all">Unselect all</button>
             <button type="button" data-action="delete-chats-confirm">Delete Selected</button>
             <button type="button" data-action="delete-chats-close">Close</button>
+          </div>
+        </div>
+      </div>
+      <div class="rabbit-modal" data-role="export-chats-modal" aria-hidden="true">
+        <div class="rabbit-modal-card">
+          <div class="rabbit-group-title">Export Chats</div>
+          <div class="rabbit-note">Select one or more chats to download as Markdown files.</div>
+          <div class="rabbit-chat-list" data-role="export-chats-list"></div>
+          <div class="rabbit-actions-row">
+            <button type="button" data-action="export-chats-select-all">Select all</button>
+            <button type="button" data-action="export-chats-unselect-all">Unselect all</button>
+            <button type="button" data-action="export-chats-confirm">Export Selected</button>
+            <button type="button" data-action="export-chats-close">Close</button>
           </div>
         </div>
       </div>
@@ -3352,7 +3475,7 @@
       }
 
       if (action === 'export-chat') {
-        exportChatAsMarkdown();
+        setExportChatsModalOpen(panel, true);
       }
 
       if (action === 'export-script-settings') {
@@ -3367,9 +3490,20 @@
         setDeleteChatsModalOpen(panel, false);
       }
 
+      if (action === 'export-chats-close') {
+        setExportChatsModalOpen(panel, false);
+      }
+
       if (action === 'delete-chats-select-all' || action === 'delete-chats-unselect-all') {
         const checked = action === 'delete-chats-select-all';
         panel.querySelectorAll('[data-role="delete-chat-check"]').forEach((node) => {
+          if (node instanceof HTMLInputElement) node.checked = checked;
+        });
+      }
+
+      if (action === 'export-chats-select-all' || action === 'export-chats-unselect-all') {
+        const checked = action === 'export-chats-select-all';
+        panel.querySelectorAll('[data-role="export-chat-check"]').forEach((node) => {
           if (node instanceof HTMLInputElement) node.checked = checked;
         });
       }
@@ -3405,6 +3539,38 @@
           alert(`Deleted ${deletedCount} chat(s).`);
           setDeleteChatsModalOpen(panel, false);
           scheduleRefresh(140);
+        })();
+      }
+
+      if (action === 'export-chats-confirm') {
+        const checks = [...panel.querySelectorAll('[data-role="export-chat-check"]')]
+          .filter((node) => node instanceof HTMLInputElement && node.checked);
+        const allChats = getSidebarChatItems();
+        const byHref = new Map(allChats.map((chat) => [chat.href, chat]));
+        const selectedChats = checks
+          .map((node) => {
+            const href = String(node.dataset.chatHref || '');
+            if (href && byHref.has(href)) return byHref.get(href);
+            const idx = Number(node.dataset.chatIndex);
+            if (Number.isFinite(idx) && idx >= 0 && idx < allChats.length) return allChats[idx];
+            return null;
+          })
+          .filter((chat) => !!chat);
+
+        if (!selectedChats.length) {
+          alert('Select at least one chat to export.');
+          return;
+        }
+
+        (async () => {
+          let exportedCount = 0;
+          for (const chat of selectedChats) {
+            const ok = await exportChatByHref(chat);
+            if (ok) exportedCount += 1;
+            await sleep(120);
+          }
+          alert(`Exported ${exportedCount} of ${selectedChats.length} chat(s).`);
+          setExportChatsModalOpen(panel, false);
         })();
       }
     });
@@ -3444,6 +3610,15 @@
       deleteModal.addEventListener('click', (event) => {
         if (event.target === deleteModal) {
           setDeleteChatsModalOpen(panel, false);
+        }
+      });
+    }
+
+    const exportModal = panel.querySelector('[data-role="export-chats-modal"]');
+    if (exportModal instanceof HTMLElement) {
+      exportModal.addEventListener('click', (event) => {
+        if (event.target === exportModal) {
+          setExportChatsModalOpen(panel, false);
         }
       });
     }
