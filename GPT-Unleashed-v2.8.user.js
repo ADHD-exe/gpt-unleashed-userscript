@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         GPT-Unleashed-v2.8.21
+// @name         GPT-Unleashed-v2.8.22
 // @namespace    https://openai.com/
-// @version      2.8.21
+// @version      2.8.22
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.21';
+  const SCRIPT_VERSION = '2.8.22';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -2790,6 +2790,8 @@
       }
     });
 
+    let suppressLauncherToggleClick = false;
+
     panel.addEventListener('click', (event) => {
       const btn = event.target.closest('button');
       if (!btn) return;
@@ -2847,6 +2849,10 @@
       }
 
       if (action === 'toggle') {
+        if (btn.closest('.rabbit-panel-launcher') && suppressLauncherToggleClick) {
+          suppressLauncherToggleClick = false;
+          return;
+        }
         settings.panelHidden = !settings.panelHidden;
         saveSettings();
 
@@ -3168,6 +3174,9 @@
     }
 
     makeDraggable(panel, panel.querySelector('.rabbit-panel-header'));
+    makeLauncherDraggable(panel, panel.querySelector('.rabbit-panel-launcher .rabbit-launcher-emblem'), () => {
+      suppressLauncherToggleClick = true;
+    });
     return panel;
   }
 
@@ -3214,6 +3223,76 @@
       if (!dragging) return;
       dragging = false;
       saveSettings();
+    });
+  }
+
+  function makeLauncherDraggable(panel, launcherButton, onDragEnd) {
+    if (!(panel instanceof HTMLElement) || !(launcherButton instanceof HTMLElement)) return;
+
+    let holding = false;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let holdTimer = null;
+    let draggedDistance = 0;
+
+    launcherButton.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      const rect = panel.getBoundingClientRect();
+      holding = true;
+      dragging = false;
+      draggedDistance = 0;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+
+      holdTimer = window.setTimeout(() => {
+        if (!holding) return;
+        dragging = true;
+      }, 160);
+    });
+
+    window.addEventListener('mousemove', (event) => {
+      if (!holding) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      draggedDistance = Math.max(draggedDistance, Math.hypot(dx, dy));
+
+      if (!dragging && draggedDistance >= 7) {
+        dragging = true;
+      }
+      if (!dragging) return;
+
+      const panelRect = panel.getBoundingClientRect();
+      const maxLeft = Math.max(8, window.innerWidth - panelRect.width - 8);
+      const maxTop = Math.max(8, window.innerHeight - panelRect.height - 8);
+      const nextLeft = Math.min(maxLeft, Math.max(8, startLeft + dx));
+      const nextTop = Math.min(maxTop, Math.max(8, startTop + dy));
+
+      panel.style.setProperty('left', `${nextLeft}px`, 'important');
+      panel.style.setProperty('top', `${nextTop}px`, 'important');
+      panel.style.setProperty('right', 'auto', 'important');
+      panel.style.setProperty('bottom', 'auto', 'important');
+
+      settings.panelLeft = nextLeft;
+      settings.panelTop = nextTop;
+      event.preventDefault();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!holding) return;
+      holding = false;
+      if (holdTimer !== null) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+      }
+      if (!dragging) return;
+      dragging = false;
+      saveSettings();
+      if (typeof onDragEnd === 'function') onDragEnd();
     });
   }
 
