@@ -1209,10 +1209,10 @@
     const sidebarLink = settings.themeSidebarEnabled ? settings.sidebarLink : 'inherit';
 
     const embeddedThemeCss = settings.themeEmbedEnabled ? `
-      .rabbit-msg-target pre,
-      .rabbit-msg-target blockquote,
-      .rabbit-msg-target table,
-      .rabbit-msg-target details {
+      .rabbit-embed-scope pre,
+      .rabbit-embed-scope blockquote,
+      .rabbit-embed-scope table,
+      .rabbit-embed-scope details {
         background: var(--rabbit-embed-bg) !important;
         color: var(--rabbit-embed-text) !important;
         border: 1px solid rgba(255,255,255,0.10) !important;
@@ -1220,21 +1220,21 @@
         box-shadow: none !important;
       }
 
-      .rabbit-msg-target pre,
-      .rabbit-msg-target pre *:not([class*="token"]):not([class*="hljs-"]),
-      .rabbit-msg-target blockquote,
-      .rabbit-msg-target blockquote *,
-      .rabbit-msg-target table,
-      .rabbit-msg-target table *,
-      .rabbit-msg-target details,
-      .rabbit-msg-target details * {
+      .rabbit-embed-scope pre,
+      .rabbit-embed-scope pre *:not([class*="token"]):not([class*="hljs-"]),
+      .rabbit-embed-scope blockquote,
+      .rabbit-embed-scope blockquote *,
+      .rabbit-embed-scope table,
+      .rabbit-embed-scope table *,
+      .rabbit-embed-scope details,
+      .rabbit-embed-scope details * {
         color: var(--rabbit-embed-text) !important;
       }
 
-      .rabbit-msg-target :not(pre) > code,
-      .rabbit-msg-target p code,
-      .rabbit-msg-target li code,
-      .rabbit-msg-target span code {
+      .rabbit-embed-scope :not(pre) > code,
+      .rabbit-embed-scope p code,
+      .rabbit-embed-scope li code,
+      .rabbit-embed-scope span code {
         background: var(--rabbit-embed-bg) !important;
         color: var(--rabbit-embed-text) !important;
         border: 1px solid rgba(255,255,255,0.10) !important;
@@ -1243,91 +1243,106 @@
         box-shadow: none !important;
       }
     ` : `
-      .rabbit-msg-target pre,
-      .rabbit-msg-target blockquote,
-      .rabbit-msg-target table,
-      .rabbit-msg-target details,
-      .rabbit-msg-target :not(pre) > code,
-      .rabbit-msg-target p code,
-      .rabbit-msg-target li code,
-      .rabbit-msg-target span code {
+      .rabbit-embed-scope pre,
+      .rabbit-embed-scope blockquote,
+      .rabbit-embed-scope table,
+      .rabbit-embed-scope details,
+      .rabbit-embed-scope :not(pre) > code,
+      .rabbit-embed-scope p code,
+      .rabbit-embed-scope li code,
+      .rabbit-embed-scope span code {
         background: initial !important;
         color: initial !important;
         border: initial !important;
         box-shadow: initial !important;
       }
 
-      .rabbit-msg-target pre *,
-      .rabbit-msg-target blockquote *,
-      .rabbit-msg-target table *,
-      .rabbit-msg-target details * {
+      .rabbit-embed-scope pre *,
+      .rabbit-embed-scope blockquote *,
+      .rabbit-embed-scope table *,
+      .rabbit-embed-scope details * {
         color: initial !important;
       }
     `;
 
     const syntaxCss = settings.codeSyntaxHighlightEnabled ? `
-      .rabbit-msg-target pre .token,
-      .rabbit-msg-target pre [class*="hljs-"] {
+      .rabbit-embed-scope pre .token,
+      .rabbit-embed-scope pre [class*="hljs-"],
+      .rabbit-embed-scope pre [class*="shiki"],
+      .rabbit-embed-scope pre code span {
         color: var(--rabbit-embed-text) !important;
       }
 
-      .rabbit-msg-target pre .token.comment,
-      .rabbit-msg-target pre .token.prolog,
-      .rabbit-msg-target pre .token.doctype,
-      .rabbit-msg-target pre .token.cdata,
-      .rabbit-msg-target pre .hljs-comment,
-      .rabbit-msg-target pre .hljs-quote,
-      .rabbit-msg-target pre .comment {
+       .rabbit-embed-scope pre .token.comment,
+       .rabbit-embed-scope pre .token.prolog,
+       .rabbit-embed-scope pre .token.doctype,
+       .rabbit-embed-scope pre .token.cdata,
+       .rabbit-embed-scope pre .hljs-comment,
+       .rabbit-embed-scope pre .hljs-quote,
+       .rabbit-embed-scope pre .comment,
+      .rabbit-embed-scope pre [class*="comment"] {
         color: var(--rabbit-code-comment) !important;
       }
 
-      .rabbit-msg-target pre .token.keyword,
-      .rabbit-msg-target pre .token.selector,
-      .rabbit-msg-target pre .token.atrule,
-      .rabbit-msg-target pre .hljs-keyword,
-      .rabbit-msg-target pre .hljs-selector-tag,
-      .rabbit-msg-target pre .keyword {
+       .rabbit-embed-scope pre .token.keyword,
+       .rabbit-embed-scope pre .token.selector,
+       .rabbit-embed-scope pre .token.atrule,
+       .rabbit-embed-scope pre .hljs-keyword,
+       .rabbit-embed-scope pre .hljs-selector-tag,
+       .rabbit-embed-scope pre .keyword,
+      .rabbit-embed-scope pre [class*="keyword"] {
         color: var(--rabbit-code-keyword) !important;
       }
 
-      .rabbit-msg-target pre .token.string,
-      .rabbit-msg-target pre .token.char,
-      .rabbit-msg-target pre .token.regex,
-      .rabbit-msg-target pre .hljs-string,
-      .rabbit-msg-target pre .hljs-regexp,
-      .rabbit-msg-target pre .string {
+       .rabbit-embed-scope pre .token.string,
+       .rabbit-embed-scope pre .token.char,
+       .rabbit-embed-scope pre .token.regex,
+       .rabbit-embed-scope pre .hljs-string,
+       .rabbit-embed-scope pre .hljs-regexp,
+       .rabbit-embed-scope pre .string,
+      .rabbit-embed-scope pre [class*="string"] {
         color: var(--rabbit-code-string) !important;
       }
 
-      .rabbit-msg-target pre .token.number,
-      .rabbit-msg-target pre .token.boolean,
-      .rabbit-msg-target pre .token.constant,
-      .rabbit-msg-target pre .hljs-number,
-      .rabbit-msg-target pre .hljs-literal,
-      .rabbit-msg-target pre .number {
+       .rabbit-embed-scope pre .token.number,
+       .rabbit-embed-scope pre .token.boolean,
+       .rabbit-embed-scope pre .token.constant,
+       .rabbit-embed-scope pre .hljs-number,
+       .rabbit-embed-scope pre .hljs-literal,
+       .rabbit-embed-scope pre .number,
+      .rabbit-embed-scope pre [class*="number"],
+      .rabbit-embed-scope pre [class*="boolean"],
+      .rabbit-embed-scope pre [class*="constant"] {
         color: var(--rabbit-code-number) !important;
       }
 
-      .rabbit-msg-target pre .token.function,
-      .rabbit-msg-target pre .token.method,
-      .rabbit-msg-target pre .hljs-function,
-      .rabbit-msg-target pre .hljs-title.function_,
-      .rabbit-msg-target pre .function {
+       .rabbit-embed-scope pre .token.function,
+       .rabbit-embed-scope pre .token.method,
+       .rabbit-embed-scope pre .hljs-function,
+       .rabbit-embed-scope pre .hljs-title.function_,
+       .rabbit-embed-scope pre .function,
+      .rabbit-embed-scope pre [class*="function"],
+      .rabbit-embed-scope pre [class*="method"] {
         color: var(--rabbit-code-function) !important;
       }
 
-      .rabbit-msg-target pre .token.class-name,
-      .rabbit-msg-target pre .token.builtin,
-      .rabbit-msg-target pre .hljs-type,
-      .rabbit-msg-target pre .hljs-class .hljs-title,
-      .rabbit-msg-target pre .type {
+       .rabbit-embed-scope pre .token.class-name,
+       .rabbit-embed-scope pre .token.builtin,
+       .rabbit-embed-scope pre .hljs-type,
+       .rabbit-embed-scope pre .hljs-class .hljs-title,
+       .rabbit-embed-scope pre .type,
+      .rabbit-embed-scope pre [class*="type"],
+      .rabbit-embed-scope pre [class*="class-name"],
+      .rabbit-embed-scope pre [class*="builtin"] {
         color: var(--rabbit-code-type) !important;
       }
 
-      .rabbit-msg-target pre .token.operator,
-      .rabbit-msg-target pre .token.punctuation,
-      .rabbit-msg-target pre .hljs-operator,
-      .rabbit-msg-target pre .operator {
+       .rabbit-embed-scope pre .token.operator,
+       .rabbit-embed-scope pre .token.punctuation,
+       .rabbit-embed-scope pre .hljs-operator,
+       .rabbit-embed-scope pre .operator,
+      .rabbit-embed-scope pre [class*="operator"],
+      .rabbit-embed-scope pre [class*="punctuation"] {
         color: var(--rabbit-code-operator) !important;
       }
     ` : '';
@@ -1602,16 +1617,16 @@
          EMBEDDED CONTENT
          ========================= */
 
-      .rabbit-msg-target [class*="code-block"],
-      .rabbit-msg-target [class*="codeBlock"],
-      .rabbit-msg-target [class*="code_"],
-      .rabbit-msg-target [class*="syntax"],
-      .rabbit-msg-target [class*="highlight"],
-      .rabbit-msg-target [class*="card"],
-      .rabbit-msg-target [class*="preview"],
-      .rabbit-msg-target [class*="embed"],
-      .rabbit-msg-target [class*="quote"],
-      .rabbit-msg-target [class*="blockquote"] {
+       .rabbit-embed-scope [class*="code-block"],
+       .rabbit-embed-scope [class*="codeBlock"],
+       .rabbit-embed-scope [class*="code_"],
+       .rabbit-embed-scope [class*="syntax"],
+       .rabbit-embed-scope [class*="highlight"],
+       .rabbit-embed-scope [class*="card"],
+       .rabbit-embed-scope [class*="preview"],
+       .rabbit-embed-scope [class*="embed"],
+       .rabbit-embed-scope [class*="quote"],
+       .rabbit-embed-scope [class*="blockquote"] {
         background: transparent !important;
         box-shadow: none !important;
         border: none !important;
@@ -1619,15 +1634,15 @@
 
       ${embeddedThemeCss}
 
-      .rabbit-msg-target pre {
+       .rabbit-embed-scope pre {
         padding: 12px !important;
         overflow: auto !important;
       }
 
-      .rabbit-msg-target pre > code,
-      .rabbit-msg-target pre code,
-      .rabbit-msg-target pre > div,
-      .rabbit-msg-target pre div {
+       .rabbit-embed-scope pre > code,
+       .rabbit-embed-scope pre code,
+       .rabbit-embed-scope pre > div,
+       .rabbit-embed-scope pre div {
         background: transparent !important;
         color: var(--rabbit-embed-text) !important;
         padding: 0 !important;
@@ -1637,7 +1652,7 @@
         box-shadow: none !important;
       }
 
-      .rabbit-msg-target blockquote {
+       .rabbit-embed-scope blockquote {
         border-left: 3px solid rgba(255,255,255,0.22) !important;
         padding: 10px 12px !important;
       }
@@ -1744,19 +1759,19 @@
         text-align: var(--rabbit-chat-text-align) !important;
       }
 
-      .rabbit-msg-target pre,
-      .rabbit-msg-target pre *,
-      .rabbit-msg-target blockquote,
-      .rabbit-msg-target blockquote *,
-      .rabbit-msg-target details,
-      .rabbit-msg-target details *,
-      .rabbit-msg-target table,
-      .rabbit-msg-target th,
-      .rabbit-msg-target td,
-      .rabbit-msg-target :not(pre) > code,
-      .rabbit-msg-target p code,
-      .rabbit-msg-target li code,
-      .rabbit-msg-target span code {
+      .rabbit-embed-scope pre,
+      .rabbit-embed-scope pre *,
+      .rabbit-embed-scope blockquote,
+      .rabbit-embed-scope blockquote *,
+      .rabbit-embed-scope details,
+      .rabbit-embed-scope details *,
+      .rabbit-embed-scope table,
+      .rabbit-embed-scope th,
+      .rabbit-embed-scope td,
+      .rabbit-embed-scope :not(pre) > code,
+      .rabbit-embed-scope p code,
+      .rabbit-embed-scope li code,
+      .rabbit-embed-scope span code {
         text-align: var(--rabbit-chat-text-align) !important;
       }
 
@@ -3725,16 +3740,22 @@
     }
   }
 
-  function pruneOldTargets(validTargets) {
+  function pruneOldTargets(validTargets, validScopes) {
     document.querySelectorAll('.rabbit-msg-target').forEach((el) => {
       if (validTargets.has(el)) return;
       el.classList.remove('rabbit-msg-target', 'rabbit-msg-user', 'rabbit-msg-assistant');
+    });
+
+    document.querySelectorAll('.rabbit-embed-scope').forEach((el) => {
+      if (validScopes.has(el)) return;
+      el.classList.remove('rabbit-embed-scope');
     });
   }
 
   function refreshMessageStyling() {
     const roleRoots = document.querySelectorAll('[data-message-author-role]');
     const validTargets = new Set();
+    const validScopes = new Set();
 
     roleRoots.forEach((root) => {
       if (!(root instanceof HTMLElement)) return;
@@ -3746,11 +3767,13 @@
       const target = findBestMessageContent(root);
       if (!target) return;
 
+      root.classList.add('rabbit-embed-scope');
       applyClassesToTarget(target, role);
+      validScopes.add(root);
       validTargets.add(target);
     });
 
-    pruneOldTargets(validTargets);
+    pruneOldTargets(validTargets, validScopes);
   }
 
   function getComposerInputCandidates() {
