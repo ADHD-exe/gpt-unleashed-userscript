@@ -64,6 +64,11 @@
     bubbleMaxWidth: 860,
     bubblePaddingY: 14,
     bubblePaddingX: 18,
+    layoutEditEnabled: true,
+    layoutWheelAdjustEnabled: true,
+    layoutTrackFillEnabled: true,
+    layoutSliderSkinEnabled: true,
+    layoutAdvancedControlsEnabled: true,
 
     featureThemeEnabled: true,
     featureFontEnabled: true,
@@ -176,6 +181,11 @@
     merged.themeComposerEnabled = !!merged.themeComposerEnabled;
     merged.themeSidebarEnabled = !!merged.themeSidebarEnabled;
     merged.panelOpacityEnabled = !!merged.panelOpacityEnabled;
+    merged.layoutEditEnabled = !!merged.layoutEditEnabled;
+    merged.layoutWheelAdjustEnabled = !!merged.layoutWheelAdjustEnabled;
+    merged.layoutTrackFillEnabled = !!merged.layoutTrackFillEnabled;
+    merged.layoutSliderSkinEnabled = !!merged.layoutSliderSkinEnabled;
+    merged.layoutAdvancedControlsEnabled = !!merged.layoutAdvancedControlsEnabled;
     merged.panelPage = PANEL_PAGES.has(merged.panelPage) ? merged.panelPage : defaults.panelPage;
 
     merged.panelHidden = !!merged.panelHidden;
@@ -203,7 +213,12 @@
       'themeEmbedEnabled',
       'themeComposerEnabled',
       'themeSidebarEnabled',
-      'panelOpacityEnabled'
+      'panelOpacityEnabled',
+      'layoutEditEnabled',
+      'layoutWheelAdjustEnabled',
+      'layoutTrackFillEnabled',
+      'layoutSliderSkinEnabled',
+      'layoutAdvancedControlsEnabled'
     ].includes(key)) {
       return !!value;
     }
@@ -1803,6 +1818,63 @@
         gap: 5px;
       }
 
+      #${PANEL_ID} .rabbit-edit-link {
+        font-size: 10px;
+        opacity: 0.8;
+        cursor: pointer;
+        text-transform: uppercase;
+      }
+
+      #${PANEL_ID} .rabbit-edit-link:hover {
+        opacity: 1;
+      }
+
+      #${PANEL_ID} .rabbit-layout-slider-skin input[type="range"] {
+        --rabbit-layout-track-fill: 100%;
+        -webkit-appearance: none;
+        appearance: none;
+        background: transparent;
+        width: 104px;
+      }
+
+      #${PANEL_ID} .rabbit-layout-slider-skin input[type="range"]::-webkit-slider-runnable-track {
+        height: 5px;
+        border-radius: 10px;
+        background: linear-gradient(to right,
+          var(--rabbit-panel-font) 0%,
+          var(--rabbit-panel-font) var(--rabbit-layout-track-fill),
+          rgba(255,255,255,0.2) var(--rabbit-layout-track-fill),
+          rgba(255,255,255,0.2) 100%);
+      }
+
+      #${PANEL_ID} .rabbit-layout-slider-skin input[type="range"]::-moz-range-track {
+        height: 5px;
+        border-radius: 10px;
+        background: linear-gradient(to right,
+          var(--rabbit-panel-font) 0%,
+          var(--rabbit-panel-font) var(--rabbit-layout-track-fill),
+          rgba(255,255,255,0.2) var(--rabbit-layout-track-fill),
+          rgba(255,255,255,0.2) 100%);
+      }
+
+      #${PANEL_ID} .rabbit-layout-slider-skin input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 10px;
+        height: 20px;
+        margin-top: -8px;
+        border-radius: 10px;
+        border: 2px solid var(--rabbit-panel-bg);
+        background: var(--rabbit-panel-font);
+      }
+
+      #${PANEL_ID} .rabbit-layout-slider-skin input[type="range"]::-moz-range-thumb {
+        width: 10px;
+        height: 20px;
+        border-radius: 10px;
+        border: 2px solid var(--rabbit-panel-bg);
+        background: var(--rabbit-panel-font);
+      }
+
       #${PANEL_ID} .rabbit-range-wrap span {
         font-size: 11px;
         min-width: 34px;
@@ -2012,6 +2084,100 @@
     if (changed) saveSettings();
   }
 
+  const LAYOUT_SLIDER_KEYS = new Set(['bubbleRadius', 'bubbleMaxWidth', 'bubblePaddingY', 'bubblePaddingX']);
+
+  function updateLayoutControls(panel) {
+    if (!panel) return;
+    const layoutPage = panel.querySelector('[data-page="layout"]');
+    if (!(layoutPage instanceof HTMLElement)) return;
+
+    layoutPage.classList.toggle('rabbit-layout-slider-skin', !!settings.layoutSliderSkinEnabled);
+
+    layoutPage.querySelectorAll('[data-layout-advanced]').forEach((node) => {
+      if (node instanceof HTMLElement) node.style.display = settings.layoutAdvancedControlsEnabled ? '' : 'none';
+    });
+
+    layoutPage.querySelectorAll('input[type="range"][data-key]').forEach((node) => {
+      if (!(node instanceof HTMLInputElement)) return;
+      if (!LAYOUT_SLIDER_KEYS.has(node.dataset.key || '')) return;
+      const min = Number(node.min) || 0;
+      const max = Number(node.max) || 100;
+      const value = Number(node.value);
+      const ratio = max === min ? 0 : ((value - min) / (max - min)) * 100;
+      node.style.setProperty('--rabbit-layout-track-fill', settings.layoutTrackFillEnabled ? `${ratio}%` : '100%');
+
+      const wrap = node.closest('.rabbit-range-wrap');
+      if (!(wrap instanceof HTMLElement)) return;
+      let editBtn = wrap.querySelector('[data-action="layout-edit"]');
+      if (!editBtn) {
+        editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.dataset.action = 'layout-edit';
+        editBtn.dataset.key = node.dataset.key || '';
+        editBtn.className = 'rabbit-edit-link';
+        editBtn.textContent = 'Edit';
+        wrap.appendChild(editBtn);
+      }
+      editBtn.style.display = settings.layoutEditEnabled ? '' : 'none';
+    });
+  }
+
+  function applyPageOptionTooltips(panel) {
+    if (!panel) return;
+    const homeTips = {
+      'nav-themes': 'Open color controls for page, bubbles, embeds, composer, and sidebar.',
+      'nav-layout': 'Open controls for alignment, radius, width, padding, and slider behavior.',
+      'nav-font': 'Adjust font family and font sizes across chat and sidebar.',
+      'nav-prompts': 'Manage saved prompts and insert them into chats quickly.',
+      'export-chat': 'Download the active chat as a Markdown file.',
+      'delete-chats-open': 'Select and delete sidebar chats from a checklist.',
+      'nav-settings': 'Open feature toggles, panel options, and userscript export.'
+    };
+    const layoutTips = {
+      chatTextAlign: 'Sets chat text alignment for conversation content.',
+      bubbleRadius: 'Controls the roundness of message bubble corners.',
+      bubbleMaxWidth: 'Sets the maximum width for message bubbles.',
+      bubblePaddingY: 'Adds vertical space inside message bubbles.',
+      bubblePaddingX: 'Adds horizontal space inside message bubbles.',
+      layoutEditEnabled: 'Shows an Edit button to type exact slider values.',
+      layoutWheelAdjustEnabled: 'Allows mouse-wheel nudging on layout sliders.',
+      layoutTrackFillEnabled: 'Displays filled track progress for each layout slider.',
+      layoutSliderSkinEnabled: 'Uses custom slider visuals on the Layout page.',
+      layoutAdvancedControlsEnabled: 'Shows or hides advanced layout utility controls.'
+    };
+    const layoutActionTips = {
+      reset: 'Restore all settings to defaults.',
+      export: 'Copy current settings JSON to clipboard.',
+      import: 'Paste settings JSON to import and apply it.'
+    };
+
+    panel.querySelectorAll('[data-page="home"] button[data-action]').forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const tip = homeTips[btn.dataset.action || ''];
+      if (tip) btn.title = tip;
+    });
+
+    panel.querySelectorAll('[data-page="layout"] [data-key]').forEach((control) => {
+      if (!(control instanceof HTMLElement)) return;
+      const key = control.dataset.key || '';
+      const tip = layoutTips[key];
+      if (!tip) return;
+      control.title = tip;
+      const row = control.closest('.rabbit-row');
+      if (row instanceof HTMLElement) {
+        row.title = tip;
+        const label = row.querySelector('span');
+        if (label instanceof HTMLElement) label.title = tip;
+      }
+    });
+
+    panel.querySelectorAll('[data-page="layout"] button[data-action]').forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const tip = layoutActionTips[btn.dataset.action || ''];
+      if (tip) btn.title = tip;
+    });
+  }
+
   function makePanel() {
     let panel = document.getElementById(PANEL_ID);
     if (panel) return panel;
@@ -2049,7 +2215,6 @@
               <button type="button" data-action="nav-prompts">Prompts</button>
               <button type="button" data-action="export-chat">Export Chat</button>
               <button type="button" data-action="delete-chats-open">Delete Chats</button>
-              <button type="button" data-action="toggle">Minimize</button>
               <button type="button" data-action="nav-settings">Settings</button>
             </div>
             <div class="rabbit-note">Select a section or export the current chat as a Markdown file.</div>
@@ -2206,7 +2371,29 @@
               </span>
             </label>
 
-            <div class="rabbit-actions-row">
+            <div class="rabbit-group-title">Slider UX</div>
+            <label class="rabbit-row">
+              <span>Inline Edit button</span>
+              <input type="checkbox" data-key="layoutEditEnabled" ${settings.layoutEditEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
+              <span>Mouse-wheel adjust</span>
+              <input type="checkbox" data-key="layoutWheelAdjustEnabled" ${settings.layoutWheelAdjustEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
+              <span>Filled slider track</span>
+              <input type="checkbox" data-key="layoutTrackFillEnabled" ${settings.layoutTrackFillEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
+              <span>Custom slider style</span>
+              <input type="checkbox" data-key="layoutSliderSkinEnabled" ${settings.layoutSliderSkinEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
+              <span>Show advanced controls</span>
+              <input type="checkbox" data-key="layoutAdvancedControlsEnabled" ${settings.layoutAdvancedControlsEnabled ? 'checked' : ''}>
+            </label>
+
+            <div class="rabbit-actions-row" data-layout-advanced>
               <button type="button" data-action="reset">Reset</button>
               <button type="button" data-action="export">Export</button>
               <button type="button" data-action="import">Import</button>
@@ -2390,6 +2577,8 @@
     setActivePage(panel, settings.panelPage, false);
     updatePanelHiddenState(panel);
     ensurePanelOnscreen(panel);
+    applyPageOptionTooltips(panel);
+    updateLayoutControls(panel);
 
     panel.addEventListener('input', (event) => {
       const t = event.target;
@@ -2416,10 +2605,35 @@
         }
       }
 
+      if (key === 'chatTextAlign' || LAYOUT_SLIDER_KEYS.has(key) || key.startsWith('layout')) {
+        updateLayoutControls(panel);
+      }
+
       scheduleSaveSettings();
       applyStyles();
       scheduleRefresh(60);
     });
+
+    panel.addEventListener('wheel', (event) => {
+      if (!settings.layoutWheelAdjustEnabled) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const row = target.closest('.rabbit-row');
+      if (!(row instanceof HTMLElement)) return;
+      if (!row.closest('[data-page="layout"]')) return;
+      const slider = row.querySelector('input[type="range"][data-key]');
+      if (!(slider instanceof HTMLInputElement)) return;
+      if (!LAYOUT_SLIDER_KEYS.has(slider.dataset.key || '')) return;
+
+      const step = Number(slider.step) || 1;
+      const min = Number(slider.min);
+      const max = Number(slider.max);
+      const current = Number(slider.value);
+      const next = current - Math.sign(event.deltaY) * (step * 2);
+      slider.value = String(clampNumber(next, Number.isFinite(min) ? min : current, Number.isFinite(max) ? max : current, current));
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+      event.preventDefault();
+    }, { passive: false });
 
     panel.addEventListener('click', (event) => {
       const btn = event.target.closest('button');
@@ -2540,6 +2754,22 @@
         } catch {
           alert('Invalid JSON');
         }
+      }
+
+      if (action === 'layout-edit') {
+        const key = btn.dataset.key || '';
+        if (!LAYOUT_SLIDER_KEYS.has(key)) return;
+        const input = panel.querySelector(`input[type="range"][data-key="${key}"]`);
+        if (!(input instanceof HTMLInputElement)) return;
+        const min = Number(input.min);
+        const max = Number(input.max);
+        const entered = prompt(`Enter a value for ${key} (${input.min} - ${input.max}):`, input.value);
+        if (entered == null) return;
+        const parsed = Number(entered);
+        if (!Number.isFinite(parsed)) return;
+        const next = clampNumber(parsed, Number.isFinite(min) ? min : parsed, Number.isFinite(max) ? max : parsed, parsed);
+        input.value = String(next);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
       }
 
       if (action === 'prompt-add') {
