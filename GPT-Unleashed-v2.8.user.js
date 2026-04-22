@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GPT-Unleashed
 // @namespace    https://openai.com/
-// @version      2.8.23
+// @version      2.8.24
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.23';
+  const SCRIPT_VERSION = '2.8.24';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -75,6 +75,7 @@
 
     featureThemeEnabled: true,
     featureFontEnabled: true,
+    hideGptWarning: true,
     themePageEnabled: true,
     themeUserBubbleEnabled: true,
     themeAssistantBubbleEnabled: true,
@@ -228,6 +229,7 @@
 
     merged.featureThemeEnabled = !!merged.featureThemeEnabled;
     merged.featureFontEnabled = !!merged.featureFontEnabled;
+    merged.hideGptWarning = !!merged.hideGptWarning;
     merged.themePageEnabled = !!merged.themePageEnabled;
     merged.themeUserBubbleEnabled = !!merged.themeUserBubbleEnabled;
     merged.themeAssistantBubbleEnabled = !!merged.themeAssistantBubbleEnabled;
@@ -266,6 +268,7 @@
     if ([
       'featureThemeEnabled',
       'featureFontEnabled',
+      'hideGptWarning',
       'themePageEnabled',
       'themeUserBubbleEnabled',
       'themeAssistantBubbleEnabled',
@@ -1343,6 +1346,45 @@
     const panelUiFont = matchedUi ? matchedUi.panelUiFont : settings.panelUiFont;
     const panelUiOutline = matchedUi ? matchedUi.panelUiOutline : settings.panelUiOutline;
     const panelUiButton = matchedUi ? matchedUi.panelUiButton : settings.panelUiButton;
+    const warningVisibilityCss = settings.hideGptWarning ? `
+      [data-rabbit-warning-hidden="1"] {
+        display: none !important;
+      }
+    ` : '';
+    const embedAlignmentCss = settings.layoutEmbedAlignmentLock ? `
+      .rabbit-embed-scope pre,
+      .rabbit-embed-scope pre *,
+      .rabbit-embed-scope blockquote,
+      .rabbit-embed-scope blockquote *,
+      .rabbit-embed-scope details,
+      .rabbit-embed-scope details *,
+      .rabbit-embed-scope table,
+      .rabbit-embed-scope table *,
+      .rabbit-embed-scope th,
+      .rabbit-embed-scope td,
+      .rabbit-embed-scope :not(pre) > code,
+      .rabbit-embed-scope p code,
+      .rabbit-embed-scope li code,
+      .rabbit-embed-scope span code {
+        text-align: initial !important;
+      }
+    ` : `
+      .rabbit-embed-scope pre,
+      .rabbit-embed-scope pre *,
+      .rabbit-embed-scope blockquote,
+      .rabbit-embed-scope blockquote *,
+      .rabbit-embed-scope details,
+      .rabbit-embed-scope details *,
+      .rabbit-embed-scope table,
+      .rabbit-embed-scope th,
+      .rabbit-embed-scope td,
+      .rabbit-embed-scope :not(pre) > code,
+      .rabbit-embed-scope p code,
+      .rabbit-embed-scope li code,
+      .rabbit-embed-scope span code {
+        text-align: var(--rabbit-chat-text-align) !important;
+      }
+    `;
 
     const embeddedThemeCss = settings.themeEmbedEnabled ? `
       .rabbit-embed-scope pre,
@@ -1434,6 +1476,10 @@
       nav[aria-label*="Chat history"],
       nav[aria-label*="chat history"],
       nav[aria-label*="sidebar"],
+      [data-testid*="sidebar-header"],
+      [data-testid*="sidebar-footer"],
+      [data-testid*="sidebar-minimized"],
+      [data-testid*="sidebar"] > div,
       aside[class*="sidebar"],
       aside[data-testid*="sidebar"],
       div[data-testid*="sidebar"],
@@ -1452,6 +1498,10 @@
       nav[aria-label*="Chat history"] *,
       nav[aria-label*="chat history"] *,
       nav[aria-label*="sidebar"] *,
+      [data-testid*="sidebar-header"] *,
+      [data-testid*="sidebar-footer"] *,
+      [data-testid*="sidebar-minimized"] *,
+      [data-testid*="sidebar"] > div *,
       aside[class*="sidebar"] *,
       aside[data-testid*="sidebar"] *,
       div[data-testid*="sidebar"] *,
@@ -1467,6 +1517,8 @@
 
       body > div nav:first-of-type a:hover,
       body > div nav:first-of-type button:hover,
+      [aria-label*="Open sidebar"]:hover,
+      [aria-label*="Close sidebar"]:hover,
       aside[class*="sidebar"] a:hover,
       aside[class*="sidebar"] button:hover,
       aside[data-testid*="sidebar"] a:hover,
@@ -1487,6 +1539,8 @@
 
       body > div nav:first-of-type a:hover *,
       body > div nav:first-of-type button:hover *,
+      [aria-label*="Open sidebar"]:hover *,
+      [aria-label*="Close sidebar"]:hover *,
       aside[class*="sidebar"] a:hover *,
       aside[class*="sidebar"] button:hover *,
       aside[data-testid*="sidebar"] a:hover *,
@@ -1505,6 +1559,8 @@
       }
 
       body > div nav:first-of-type a,
+      [aria-label*="Open sidebar"],
+      [aria-label*="Close sidebar"],
       nav[aria-label*="Chat history"] a,
       nav[aria-label*="chat history"] a,
       nav[aria-label*="sidebar"] a,
@@ -1527,18 +1583,20 @@
 
       .rabbit-composer-shell {
         display: flex !important;
-        align-items: center !important;
+        align-items: stretch !important;
         background: var(--rabbit-composer-bg) !important;
         border-color: rgba(255,255,255,0.12) !important;
         box-shadow: 0 10px 26px rgba(0,0,0,0.34) !important;
-        border-radius: 18px !important;
-        transform: translateY(-8px) !important;
-        margin-bottom: 8px !important;
+        border-radius: 24px !important;
+        transform: none !important;
+        margin-bottom: 0 !important;
         min-height: 64px !important;
-        max-height: 72px !important;
+        max-height: min(52vh, 460px) !important;
         overflow: visible !important;
         position: relative !important;
         z-index: 2147483644 !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
         padding-left: 58px !important;
         padding-right: 58px !important;
         backdrop-filter: blur(10px) !important;
@@ -1563,8 +1621,8 @@
         border-color: transparent !important;
         box-shadow: none !important;
         min-height: 42px !important;
-        max-height: 42px !important;
-        height: 42px !important;
+        max-height: min(42vh, 360px) !important;
+        height: auto !important;
         overflow-y: auto !important;
         resize: none !important;
         padding-top: 8px !important;
@@ -1887,23 +1945,9 @@
         text-align: var(--rabbit-chat-text-align) !important;
       }
 
-      ${settings.layoutEmbedAlignmentLock ? '' : `
-      .rabbit-embed-scope pre,
-      .rabbit-embed-scope pre *,
-      .rabbit-embed-scope blockquote,
-      .rabbit-embed-scope blockquote *,
-      .rabbit-embed-scope details,
-      .rabbit-embed-scope details *,
-      .rabbit-embed-scope table,
-      .rabbit-embed-scope th,
-      .rabbit-embed-scope td,
-      .rabbit-embed-scope :not(pre) > code,
-      .rabbit-embed-scope p code,
-      .rabbit-embed-scope li code,
-      .rabbit-embed-scope span code {
-        text-align: var(--rabbit-chat-text-align) !important;
-      }
-      `}
+      ${embedAlignmentCss}
+
+      ${warningVisibilityCss}
 
       .rabbit-msg-user,
       .rabbit-msg-user *,
@@ -2561,6 +2605,7 @@
     const settingsTips = {
       featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
       featureFontEnabled: 'Enable or disable script-managed chat and sidebar font settings.',
+      hideGptWarning: 'Hide the ChatGPT warning line at the bottom of the page.',
       launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.',
       moveGuiDragEnabled: 'Enables click-and-drag repositioning for the panel header and minimized launcher emblem.',
       codeSyntaxHighlightEnabled: 'Turn syntax highlighting colors for embedded code blocks on or off.',
@@ -2968,6 +3013,10 @@
             <label class="rabbit-row">
               <span>Font override</span>
               <input type="checkbox" data-key="featureFontEnabled" ${settings.featureFontEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
+              <span>Hide GPT warning</span>
+              <input type="checkbox" data-key="hideGptWarning" ${settings.hideGptWarning ? 'checked' : ''}>
             </label>
             <label class="rabbit-row">
               <span>Hide launcher until hover</span>
@@ -4134,6 +4183,44 @@
     }
   }
 
+  function refreshGptWarningVisibility() {
+    if (!(document.body instanceof HTMLElement)) return;
+    document.querySelectorAll('[data-rabbit-warning-hidden="1"]').forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      if (settings.hideGptWarning) return;
+      el.removeAttribute('data-rabbit-warning-hidden');
+      el.style.removeProperty('display');
+    });
+    if (!settings.hideGptWarning) return;
+
+    const warningNeedles = [
+      'chatgpt can make mistakes',
+      'check important info'
+    ];
+    const textWalker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const matched = new Set();
+
+    let node = textWalker.nextNode();
+    while (node) {
+      const text = (node.textContent || '').toLowerCase();
+      if (warningNeedles.every((needle) => text.includes(needle))) {
+        const owner = node.parentElement;
+        if (owner instanceof HTMLElement) {
+          const shell = owner.closest('footer, div, p, span');
+          if (shell instanceof HTMLElement) matched.add(shell);
+          const footer = owner.closest('footer');
+          if (footer instanceof HTMLElement) matched.add(footer);
+        }
+      }
+      node = textWalker.nextNode();
+    }
+
+    matched.forEach((el) => {
+      el.setAttribute('data-rabbit-warning-hidden', '1');
+      el.style.setProperty('display', 'none', 'important');
+    });
+  }
+
   function pauseObserver() {
     observerPaused = true;
     if (mutationObserver) {
@@ -4152,6 +4239,7 @@
     try {
       refreshMessageStyling();
       refreshComposerStyling();
+      refreshGptWarningVisibility();
       ensureSidebarDeleteButtons();
     } finally {
       resumeObserver();
