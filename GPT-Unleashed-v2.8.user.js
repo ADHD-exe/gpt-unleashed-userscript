@@ -179,6 +179,7 @@
   let refreshTimer = null;
   let mutationObserver = null;
   let observerPaused = false;
+  let syntaxReturnPage = 'settings';
 
   function clampNumber(value, min, max, fallback) {
     const num = Number(value);
@@ -1207,6 +1208,130 @@
     const sidebarText = settings.themeSidebarEnabled ? settings.sidebarText : 'inherit';
     const sidebarLink = settings.themeSidebarEnabled ? settings.sidebarLink : 'inherit';
 
+    const embeddedThemeCss = settings.themeEmbedEnabled ? `
+      .rabbit-msg-target pre,
+      .rabbit-msg-target blockquote,
+      .rabbit-msg-target table,
+      .rabbit-msg-target details {
+        background: var(--rabbit-embed-bg) !important;
+        color: var(--rabbit-embed-text) !important;
+        border: 1px solid rgba(255,255,255,0.10) !important;
+        border-radius: 12px !important;
+        box-shadow: none !important;
+      }
+
+      .rabbit-msg-target pre,
+      .rabbit-msg-target pre *:not([class*="token"]):not([class*="hljs-"]),
+      .rabbit-msg-target blockquote,
+      .rabbit-msg-target blockquote *,
+      .rabbit-msg-target table,
+      .rabbit-msg-target table *,
+      .rabbit-msg-target details,
+      .rabbit-msg-target details * {
+        color: var(--rabbit-embed-text) !important;
+      }
+
+      .rabbit-msg-target :not(pre) > code,
+      .rabbit-msg-target p code,
+      .rabbit-msg-target li code,
+      .rabbit-msg-target span code {
+        background: var(--rabbit-embed-bg) !important;
+        color: var(--rabbit-embed-text) !important;
+        border: 1px solid rgba(255,255,255,0.10) !important;
+        border-radius: 8px !important;
+        padding: 0.12em 0.35em !important;
+        box-shadow: none !important;
+      }
+    ` : `
+      .rabbit-msg-target pre,
+      .rabbit-msg-target blockquote,
+      .rabbit-msg-target table,
+      .rabbit-msg-target details,
+      .rabbit-msg-target :not(pre) > code,
+      .rabbit-msg-target p code,
+      .rabbit-msg-target li code,
+      .rabbit-msg-target span code {
+        background: initial !important;
+        color: initial !important;
+        border: initial !important;
+        box-shadow: initial !important;
+      }
+
+      .rabbit-msg-target pre *,
+      .rabbit-msg-target blockquote *,
+      .rabbit-msg-target table *,
+      .rabbit-msg-target details * {
+        color: initial !important;
+      }
+    `;
+
+    const syntaxCss = settings.codeSyntaxHighlightEnabled ? `
+      .rabbit-msg-target pre .token,
+      .rabbit-msg-target pre [class*="hljs-"] {
+        color: var(--rabbit-embed-text) !important;
+      }
+
+      .rabbit-msg-target pre .token.comment,
+      .rabbit-msg-target pre .token.prolog,
+      .rabbit-msg-target pre .token.doctype,
+      .rabbit-msg-target pre .token.cdata,
+      .rabbit-msg-target pre .hljs-comment,
+      .rabbit-msg-target pre .hljs-quote,
+      .rabbit-msg-target pre .comment {
+        color: var(--rabbit-code-comment) !important;
+      }
+
+      .rabbit-msg-target pre .token.keyword,
+      .rabbit-msg-target pre .token.selector,
+      .rabbit-msg-target pre .token.atrule,
+      .rabbit-msg-target pre .hljs-keyword,
+      .rabbit-msg-target pre .hljs-selector-tag,
+      .rabbit-msg-target pre .keyword {
+        color: var(--rabbit-code-keyword) !important;
+      }
+
+      .rabbit-msg-target pre .token.string,
+      .rabbit-msg-target pre .token.char,
+      .rabbit-msg-target pre .token.regex,
+      .rabbit-msg-target pre .hljs-string,
+      .rabbit-msg-target pre .hljs-regexp,
+      .rabbit-msg-target pre .string {
+        color: var(--rabbit-code-string) !important;
+      }
+
+      .rabbit-msg-target pre .token.number,
+      .rabbit-msg-target pre .token.boolean,
+      .rabbit-msg-target pre .token.constant,
+      .rabbit-msg-target pre .hljs-number,
+      .rabbit-msg-target pre .hljs-literal,
+      .rabbit-msg-target pre .number {
+        color: var(--rabbit-code-number) !important;
+      }
+
+      .rabbit-msg-target pre .token.function,
+      .rabbit-msg-target pre .token.method,
+      .rabbit-msg-target pre .hljs-function,
+      .rabbit-msg-target pre .hljs-title.function_,
+      .rabbit-msg-target pre .function {
+        color: var(--rabbit-code-function) !important;
+      }
+
+      .rabbit-msg-target pre .token.class-name,
+      .rabbit-msg-target pre .token.builtin,
+      .rabbit-msg-target pre .hljs-type,
+      .rabbit-msg-target pre .hljs-class .hljs-title,
+      .rabbit-msg-target pre .type {
+        color: var(--rabbit-code-type) !important;
+      }
+
+      .rabbit-msg-target pre .token.operator,
+      .rabbit-msg-target pre .token.punctuation,
+      .rabbit-msg-target pre .hljs-operator,
+      .rabbit-msg-target pre .operator {
+        color: var(--rabbit-code-operator) !important;
+      }
+    ` : '';
+
     const themeCss = themeEnabled ? `
       html, body, #__next, main {
         background: var(--rabbit-page-bg) !important;
@@ -1434,7 +1559,7 @@
 
       .rabbit-msg-user,
       .rabbit-msg-user p,
-      .rabbit-msg-user span,
+      .rabbit-msg-user span:not([class*="token"]):not([class*="hljs"]),
       .rabbit-msg-user li,
       .rabbit-msg-user ul,
       .rabbit-msg-user ol,
@@ -1446,7 +1571,7 @@
 
       .rabbit-msg-assistant,
       .rabbit-msg-assistant p,
-      .rabbit-msg-assistant span,
+      .rabbit-msg-assistant span:not([class*="token"]):not([class*="hljs"]),
       .rabbit-msg-assistant li,
       .rabbit-msg-assistant ul,
       .rabbit-msg-assistant ol,
@@ -1492,39 +1617,7 @@
         border: none !important;
       }
 
-      .rabbit-msg-target pre,
-      .rabbit-msg-target blockquote,
-      .rabbit-msg-target table,
-      .rabbit-msg-target details {
-        background: var(--rabbit-embed-bg) !important;
-        color: var(--rabbit-embed-text) !important;
-        border: 1px solid rgba(255,255,255,0.10) !important;
-        border-radius: 12px !important;
-        box-shadow: none !important;
-      }
-
-      .rabbit-msg-target pre,
-      .rabbit-msg-target pre *:not([class*="token"]):not([class*="hljs-"]),
-      .rabbit-msg-target blockquote,
-      .rabbit-msg-target blockquote *,
-      .rabbit-msg-target table,
-      .rabbit-msg-target table *,
-      .rabbit-msg-target details,
-      .rabbit-msg-target details * {
-        color: var(--rabbit-embed-text) !important;
-      }
-
-      .rabbit-msg-target :not(pre) > code,
-      .rabbit-msg-target p code,
-      .rabbit-msg-target li code,
-      .rabbit-msg-target span code {
-        background: var(--rabbit-embed-bg) !important;
-        color: var(--rabbit-embed-text) !important;
-        border: 1px solid rgba(255,255,255,0.10) !important;
-        border-radius: 8px !important;
-        padding: 0.12em 0.35em !important;
-        box-shadow: none !important;
-      }
+      ${embeddedThemeCss}
 
       .rabbit-msg-target pre {
         padding: 12px !important;
@@ -1549,60 +1642,7 @@
         padding: 10px 12px !important;
       }
 
-      ${settings.codeSyntaxHighlightEnabled ? `
-      .rabbit-msg-target pre .token.comment,
-      .rabbit-msg-target pre .token.prolog,
-      .rabbit-msg-target pre .token.doctype,
-      .rabbit-msg-target pre .token.cdata,
-      .rabbit-msg-target pre .hljs-comment,
-      .rabbit-msg-target pre .hljs-quote {
-        color: var(--rabbit-code-comment) !important;
-      }
-
-      .rabbit-msg-target pre .token.keyword,
-      .rabbit-msg-target pre .token.selector,
-      .rabbit-msg-target pre .token.atrule,
-      .rabbit-msg-target pre .hljs-keyword,
-      .rabbit-msg-target pre .hljs-selector-tag {
-        color: var(--rabbit-code-keyword) !important;
-      }
-
-      .rabbit-msg-target pre .token.string,
-      .rabbit-msg-target pre .token.char,
-      .rabbit-msg-target pre .token.regex,
-      .rabbit-msg-target pre .hljs-string,
-      .rabbit-msg-target pre .hljs-regexp {
-        color: var(--rabbit-code-string) !important;
-      }
-
-      .rabbit-msg-target pre .token.number,
-      .rabbit-msg-target pre .token.boolean,
-      .rabbit-msg-target pre .token.constant,
-      .rabbit-msg-target pre .hljs-number,
-      .rabbit-msg-target pre .hljs-literal {
-        color: var(--rabbit-code-number) !important;
-      }
-
-      .rabbit-msg-target pre .token.function,
-      .rabbit-msg-target pre .token.method,
-      .rabbit-msg-target pre .hljs-function,
-      .rabbit-msg-target pre .hljs-title.function_ {
-        color: var(--rabbit-code-function) !important;
-      }
-
-      .rabbit-msg-target pre .token.class-name,
-      .rabbit-msg-target pre .token.builtin,
-      .rabbit-msg-target pre .hljs-type,
-      .rabbit-msg-target pre .hljs-class .hljs-title {
-        color: var(--rabbit-code-type) !important;
-      }
-
-      .rabbit-msg-target pre .token.operator,
-      .rabbit-msg-target pre .token.punctuation,
-      .rabbit-msg-target pre .hljs-operator {
-        color: var(--rabbit-code-operator) !important;
-      }
-      ` : ''}
+      ${syntaxCss}
     ` : '';
 
     ensureStyleTag().textContent = `
@@ -2201,6 +2241,15 @@
     }
   }
 
+  function openSyntaxPage(panel, fromPage = settings.panelPage) {
+    if (!(panel instanceof HTMLElement)) return;
+    const sourcePage = PANEL_PAGES.has(fromPage) ? fromPage : 'settings';
+    syntaxReturnPage = sourcePage === 'syntax' ? 'settings' : sourcePage;
+    settings.panelHidden = false;
+    setActivePage(panel, 'syntax');
+    updatePanelHiddenState(panel);
+  }
+
   function updatePanelHeader(panel) {
     if (!panel) return;
     const title = panel.querySelector('[data-role="panel-title"]');
@@ -2348,7 +2397,8 @@
     const themeActionTips = {
       'theme-save': 'Save the current color/toggle configuration as a reusable theme.',
       'theme-export': 'Download the current theme as JSON.',
-      'theme-import': 'Import a theme JSON payload and apply it.'
+      'theme-import': 'Import a theme JSON payload and apply it.',
+      'nav-syntax-from-themes': 'Open syntax highlighting color controls without leaving Themes.'
     };
     const settingsTips = {
       featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
@@ -2530,6 +2580,10 @@
               <input type="checkbox" data-key="themeEmbedEnabled" ${settings.themeEmbedEnabled ? 'checked' : ''}>
             </label>
             <label class="rabbit-row">
+              <span>Syntax highlighting</span>
+              <input type="checkbox" data-key="codeSyntaxHighlightEnabled" ${settings.codeSyntaxHighlightEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
               <span>Background</span>
               <input type="color" data-key="embedBg" value="${escapeHtml(settings.embedBg)}">
             </label>
@@ -2537,6 +2591,9 @@
               <span>Font color</span>
               <input type="color" data-key="embedText" value="${escapeHtml(settings.embedText)}">
             </label>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="nav-syntax-from-themes">Syntax Color Picker</button>
+            </div>
           </div>
 
           <div class="rabbit-group">
@@ -2837,6 +2894,9 @@
               <span>Operators</span>
               <input type="color" data-key="codeSyntaxOperator" value="${escapeHtml(settings.codeSyntaxOperator)}">
             </label>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="syntax-save-return">Save</button>
+            </div>
             <div class="rabbit-note">Applies to common Prism and highlight.js token classes in embedded code blocks.</div>
           </div>
         </div>
@@ -3003,8 +3063,15 @@
       }
 
       if (action === 'nav-syntax') {
-        settings.panelHidden = false;
-        setActivePage(panel, 'syntax');
+        openSyntaxPage(panel, settings.panelPage);
+      }
+
+      if (action === 'nav-syntax-from-themes') {
+        openSyntaxPage(panel, 'themes');
+      }
+
+      if (action === 'syntax-save-return') {
+        setActivePage(panel, syntaxReturnPage);
         updatePanelHiddenState(panel);
       }
 
@@ -3567,16 +3634,30 @@
     let current = node;
     let depth = 0;
 
-    while (current && current !== roleRoot && depth < 4) {
+    while (current && current !== roleRoot && depth < 6) {
       const tag = current.tagName.toLowerCase();
       if (!['pre', 'code', 'blockquote', 'table', 'details'].includes(tag)) {
-        return current;
+        break;
       }
       current = current.parentElement;
       depth += 1;
     }
 
-    return node;
+    if (!(current instanceof HTMLElement)) return node;
+
+    let expandable = current;
+    let hops = 0;
+    while (expandable.parentElement && expandable.parentElement !== roleRoot && hops < 5) {
+      const parent = expandable.parentElement;
+      if (!(parent instanceof HTMLElement)) break;
+      if (!looksLikeMessageContent(parent)) break;
+      if (isAuxiliaryUiNode(parent)) break;
+      if (parent.querySelectorAll('button').length > 2) break;
+      expandable = parent;
+      hops += 1;
+    }
+
+    return expandable;
   }
 
   function findBestMessageContent(roleRoot) {
