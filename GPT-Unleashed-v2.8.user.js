@@ -83,6 +83,7 @@
     panelUiButton: '#0a6600',
 
     panelHidden: false,
+    launcherHiddenUntilHover: false,
     panelLeft: null,
     panelTop: null
   };
@@ -178,6 +179,7 @@
     merged.panelPage = PANEL_PAGES.has(merged.panelPage) ? merged.panelPage : defaults.panelPage;
 
     merged.panelHidden = !!merged.panelHidden;
+    merged.launcherHiddenUntilHover = !!merged.launcherHiddenUntilHover;
     merged.panelLeft = Number.isFinite(merged.panelLeft) ? merged.panelLeft : null;
     merged.panelTop = Number.isFinite(merged.panelTop) ? merged.panelTop : null;
 
@@ -1668,6 +1670,15 @@
         display: flex;
       }
 
+      #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover .rabbit-panel-launcher {
+        opacity: 0;
+      }
+
+      #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover:hover .rabbit-panel-launcher,
+      #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover:focus-within .rabbit-panel-launcher {
+        opacity: 1;
+      }
+
       #${PANEL_ID} .rabbit-launcher-btn {
         width: 48px;
         height: 48px;
@@ -1678,7 +1689,7 @@
         background-size: contain;
         padding: 0;
         cursor: pointer;
-        transition: transform 140ms ease, filter 140ms ease;
+        transition: transform 140ms ease, filter 140ms ease, opacity 140ms ease;
       }
 
       #${PANEL_ID} .rabbit-launcher-btn.rabbit-launcher-emblem {
@@ -1966,6 +1977,7 @@
     const title = panel.querySelector('[data-role="panel-title"]');
     const homeBtn = panel.querySelector('[data-action="nav-home"]');
     const toggle = panel.querySelector('[data-role="panel-toggle"]');
+    const launcherVisibilityToggle = panel.querySelector('[data-role="launcher-visibility-toggle"]');
 
     if (title) {
       title.textContent = settings.panelHidden ? 'GPT-Unleashed' : getPanelTitle(settings.panelPage);
@@ -1976,7 +1988,11 @@
     }
 
     if (toggle) {
-      toggle.textContent = settings.panelHidden ? 'Open' : 'Hide';
+      toggle.textContent = settings.panelHidden ? 'Open' : 'Minimize';
+    }
+
+    if (launcherVisibilityToggle) {
+      launcherVisibilityToggle.textContent = settings.launcherHiddenUntilHover ? 'Unhide' : 'Hide';
     }
   }
 
@@ -2001,6 +2017,7 @@
   function updatePanelHiddenState(panel) {
     if (!panel) return;
     panel.classList.toggle('rabbit-panel-hidden', !!settings.panelHidden);
+    panel.classList.toggle('rabbit-launcher-hidden-until-hover', !!settings.launcherHiddenUntilHover);
 
     const header = panel.querySelector('.rabbit-panel-header');
     if (header) {
@@ -2060,7 +2077,8 @@
         <div class="rabbit-panel-title" data-role="panel-title">GPT-Unleashed</div>
         <div class="rabbit-panel-actions">
           <button type="button" data-action="nav-home">Home</button>
-          <button type="button" data-action="toggle" data-role="panel-toggle">${settings.panelHidden ? 'Open' : 'Hide'}</button>
+          <button type="button" data-action="toggle-launcher-visibility" data-role="launcher-visibility-toggle">${settings.launcherHiddenUntilHover ? 'Unhide' : 'Hide'}</button>
+          <button type="button" data-action="toggle" data-role="panel-toggle">${settings.panelHidden ? 'Open' : 'Minimize'}</button>
         </div>
       </div>
       <div class="rabbit-panel-body">
@@ -2074,7 +2092,7 @@
               <button type="button" data-action="nav-prompts">Prompts</button>
               <button type="button" data-action="export-chat">Export Chat</button>
               <button type="button" data-action="delete-chats-open">Delete Chats</button>
-              <button type="button" data-action="toggle">Hide</button>
+              <button type="button" data-action="toggle">Minimize</button>
               <button type="button" data-action="nav-settings">Settings</button>
             </div>
             <div class="rabbit-note">Select a section or export the current chat as a Markdown file.</div>
@@ -2523,6 +2541,12 @@
           panel.style.bottom = 'auto';
         }
 
+        updatePanelHiddenState(panel);
+      }
+
+      if (action === 'toggle-launcher-visibility') {
+        settings.launcherHiddenUntilHover = !settings.launcherHiddenUntilHover;
+        saveSettings();
         updatePanelHiddenState(panel);
       }
 
