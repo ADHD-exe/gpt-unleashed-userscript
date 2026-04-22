@@ -79,6 +79,8 @@
     themeEmbedEnabled: true,
     themeComposerEnabled: true,
     themeSidebarEnabled: true,
+    selectedThemePresetId: 'builtin-default',
+    uiMatchThemeEnabled: true,
     panelOpacityEnabled: true,
     panelOpacity: 0.92,
     panelPage: 'home',
@@ -151,6 +153,7 @@
     'sidebarLink'
   ];
   const BUILTIN_THEME_PRESETS = [
+    { id: 'builtin-default', name: 'Default Theme', theme: { pageBg: defaults.pageBg, pageText: defaults.pageText, userBubbleBg: defaults.userBubbleBg, userBubbleText: defaults.userBubbleText, assistantBubbleBg: defaults.assistantBubbleBg, assistantBubbleText: defaults.assistantBubbleText, embedBg: defaults.embedBg, embedText: defaults.embedText, composerBg: defaults.composerBg, composerText: defaults.composerText, sidebarBg: defaults.sidebarBg, sidebarText: defaults.sidebarText, sidebarLink: defaults.sidebarLink } },
     { id: 'builtin-midnight-oled', name: 'Midnight OLED', theme: { pageBg: '#000000', pageText: '#f4f8ff', userBubbleBg: '#0e1628', userBubbleText: '#d8e7ff', assistantBubbleBg: '#121212', assistantBubbleText: '#f1f1f1', embedBg: '#111827', embedText: '#dbeafe', composerBg: '#0b1220', composerText: '#e2e8f0', sidebarBg: '#030712', sidebarText: '#cbd5e1', sidebarLink: '#60a5fa' } },
     { id: 'builtin-dracula', name: 'Dracula', theme: { pageBg: '#282a36', pageText: '#f8f8f2', userBubbleBg: '#44475a', userBubbleText: '#f8f8f2', assistantBubbleBg: '#6272a4', assistantBubbleText: '#f8f8f2', embedBg: '#1f2230', embedText: '#bd93f9', composerBg: '#343746', composerText: '#ff79c6', sidebarBg: '#21222c', sidebarText: '#f8f8f2', sidebarLink: '#8be9fd' } },
     { id: 'builtin-nord', name: 'Nord', theme: { pageBg: '#2e3440', pageText: '#eceff4', userBubbleBg: '#4c566a', userBubbleText: '#eceff4', assistantBubbleBg: '#3b4252', assistantBubbleText: '#d8dee9', embedBg: '#434c5e', embedText: '#88c0d0', composerBg: '#3b4252', composerText: '#e5e9f0', sidebarBg: '#2b303b', sidebarText: '#d8dee9', sidebarLink: '#81a1c1' } },
@@ -236,7 +239,9 @@
     merged.layoutSliderSkinEnabled = !!merged.layoutSliderSkinEnabled;
     merged.layoutAdvancedControlsEnabled = !!merged.layoutAdvancedControlsEnabled;
     merged.codeSyntaxHighlightEnabled = !!merged.codeSyntaxHighlightEnabled;
+    merged.uiMatchThemeEnabled = !!merged.uiMatchThemeEnabled;
     merged.panelPage = PANEL_PAGES.has(merged.panelPage) ? merged.panelPage : defaults.panelPage;
+    merged.selectedThemePresetId = typeof merged.selectedThemePresetId === 'string' ? merged.selectedThemePresetId : defaults.selectedThemePresetId;
 
     merged.panelHidden = !!merged.panelHidden;
     merged.launcherHiddenUntilHover = !!merged.launcherHiddenUntilHover;
@@ -269,7 +274,8 @@
       'layoutTrackFillEnabled',
       'layoutSliderSkinEnabled',
       'layoutAdvancedControlsEnabled',
-      'codeSyntaxHighlightEnabled'
+      'codeSyntaxHighlightEnabled',
+      'uiMatchThemeEnabled'
     ].includes(key)) {
       return !!value;
     }
@@ -380,10 +386,30 @@
     return [...builtins, ...customs];
   }
 
+  function getThemePresetById(presetId) {
+    if (!presetId) return null;
+    return getThemePresets().find((item) => item.id === presetId) || null;
+  }
+
+  function derivePanelUiColorsFromTheme(theme) {
+    const safeTheme = normalizeThemeSnapshot(theme || {});
+    return {
+      panelUiBg: safeTheme.sidebarBg,
+      panelUiBubble: safeTheme.assistantBubbleBg,
+      panelUiFont: safeTheme.pageText,
+      panelUiOutline: safeTheme.sidebarLink,
+      panelUiButton: safeTheme.userBubbleBg
+    };
+  }
+
   function applyThemePresetToSettings(themePreset) {
     if (!themePreset || !themePreset.theme) return false;
     const normalizedTheme = normalizeThemeSnapshot(themePreset.theme);
-    settings = normalizeSettings({ ...settings, ...normalizedTheme });
+    const nextSettings = { ...settings, ...normalizedTheme, selectedThemePresetId: themePreset.id };
+    if (settings.uiMatchThemeEnabled) {
+      Object.assign(nextSettings, derivePanelUiColorsFromTheme(normalizedTheme));
+    }
+    settings = normalizeSettings(nextSettings);
     return true;
   }
 
@@ -392,15 +418,19 @@
     if (!(select instanceof HTMLSelectElement)) return;
     const presets = getThemePresets();
     const savedSet = new Set(savedThemes.map((item) => item.id));
-    select.innerHTML = '<option value="">Choose a theme…</option>';
+    const selectedThemeId = selectedId || settings.selectedThemePresetId || defaults.selectedThemePresetId;
+    select.innerHTML = '';
     presets.forEach((preset) => {
       const option = document.createElement('option');
       option.value = preset.id;
       const suffix = savedSet.has(preset.id) ? ' (Saved)' : ' (Preset)';
       option.textContent = `${preset.name}${suffix}`;
-      if (selectedId && selectedId === preset.id) option.selected = true;
+      if (selectedThemeId === preset.id) option.selected = true;
       select.appendChild(option);
     });
+    if (!select.value && presets[0]) {
+      select.value = presets[0].id;
+    }
   }
 
   function normalizePrompt(item, fallbackTitle) {
@@ -1207,6 +1237,13 @@
     const sidebarBg = settings.themeSidebarEnabled ? settings.sidebarBg : 'transparent';
     const sidebarText = settings.themeSidebarEnabled ? settings.sidebarText : 'inherit';
     const sidebarLink = settings.themeSidebarEnabled ? settings.sidebarLink : 'inherit';
+    const selectedTheme = getThemePresetById(settings.selectedThemePresetId) || getThemePresetById(defaults.selectedThemePresetId);
+    const matchedUi = settings.uiMatchThemeEnabled && selectedTheme ? derivePanelUiColorsFromTheme(selectedTheme.theme) : null;
+    const panelUiBg = matchedUi ? matchedUi.panelUiBg : settings.panelUiBg;
+    const panelUiBubble = matchedUi ? matchedUi.panelUiBubble : settings.panelUiBubble;
+    const panelUiFont = matchedUi ? matchedUi.panelUiFont : settings.panelUiFont;
+    const panelUiOutline = matchedUi ? matchedUi.panelUiOutline : settings.panelUiOutline;
+    const panelUiButton = matchedUi ? matchedUi.panelUiButton : settings.panelUiButton;
 
     const embeddedThemeCss = settings.themeEmbedEnabled ? `
       .rabbit-embed-scope pre,
@@ -1803,11 +1840,11 @@
          ========================= */
 
       #${PANEL_ID} {
-        --rabbit-panel-bg: ${settings.panelUiBg};
-        --rabbit-panel-bubble: ${settings.panelUiBubble};
-        --rabbit-panel-font: ${settings.panelUiFont};
-        --rabbit-panel-outline: ${settings.panelUiOutline};
-        --rabbit-panel-btn: ${settings.panelUiButton};
+        --rabbit-panel-bg: ${panelUiBg};
+        --rabbit-panel-bubble: ${panelUiBubble};
+        --rabbit-panel-font: ${panelUiFont};
+        --rabbit-panel-outline: ${panelUiOutline};
+        --rabbit-panel-btn: ${panelUiButton};
         position: fixed;
         top: ${PANEL_OPEN_TOP}px;
         right: ${PANEL_OPEN_RIGHT}px;
@@ -2381,6 +2418,17 @@
     });
   }
 
+  function updateUiThemeControls(panel) {
+    if (!panel) return;
+    const uiPage = panel.querySelector('[data-page="ui-theme"]');
+    if (!(uiPage instanceof HTMLElement)) return;
+    const lockManualColors = !!settings.uiMatchThemeEnabled;
+    uiPage.querySelectorAll('input[type="color"][data-key^="panelUi"]').forEach((node) => {
+      if (!(node instanceof HTMLInputElement)) return;
+      node.disabled = lockManualColors;
+    });
+  }
+
   function applyPageOptionTooltips(panel) {
     if (!panel) return;
     const homeTips = {
@@ -2419,7 +2467,8 @@
       featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
       featureFontEnabled: 'Enable or disable script-managed chat and sidebar font settings.',
       launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.',
-      codeSyntaxHighlightEnabled: 'Turn syntax highlighting colors for embedded code blocks on or off.'
+      codeSyntaxHighlightEnabled: 'Turn syntax highlighting colors for embedded code blocks on or off.',
+      uiMatchThemeEnabled: 'Use the currently selected theme to automatically style the panel UI colors.'
     };
     const settingsActionTips = {
       'nav-syntax': 'Open syntax highlighting color controls for embedded code tokens.',
@@ -2459,6 +2508,20 @@
     });
 
     panel.querySelectorAll('[data-page="settings"] [data-key]').forEach((control) => {
+      if (!(control instanceof HTMLElement)) return;
+      const key = control.dataset.key || '';
+      const tip = settingsTips[key];
+      if (!tip) return;
+      control.title = tip;
+      const row = control.closest('.rabbit-row');
+      if (row instanceof HTMLElement) {
+        row.title = tip;
+        const label = row.querySelector('span');
+        if (label instanceof HTMLElement) label.title = tip;
+      }
+    });
+
+    panel.querySelectorAll('[data-page="themes"] [data-key]').forEach((control) => {
       if (!(control instanceof HTMLElement)) return;
       const key = control.dataset.key || '';
       const tip = settingsTips[key];
@@ -2524,6 +2587,10 @@
         <div class="rabbit-page" data-page="themes">
           <div class="rabbit-group">
             <div class="rabbit-group-title">Theme Manager</div>
+            <label class="rabbit-row">
+              <span>Enable theme styling</span>
+              <input type="checkbox" data-key="featureThemeEnabled" ${settings.featureThemeEnabled ? 'checked' : ''}>
+            </label>
             <label class="rabbit-row rabbit-font-row">
               <span>Saved themes</span>
               <select data-role="theme-select"></select>
@@ -2856,6 +2923,10 @@
           <div class="rabbit-group">
             <div class="rabbit-group-title">Panel UI Colors</div>
             <label class="rabbit-row">
+              <span>Match Theme</span>
+              <input type="checkbox" data-key="uiMatchThemeEnabled" ${settings.uiMatchThemeEnabled ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
               <span>Background</span>
               <input type="color" data-key="panelUiBg" value="${escapeHtml(settings.panelUiBg)}">
             </label>
@@ -2948,6 +3019,7 @@
     ensurePanelOnscreen(panel);
     applyPageOptionTooltips(panel);
     updateLayoutControls(panel);
+    updateUiThemeControls(panel);
     renderThemeSelect(panel);
 
     panel.addEventListener('input', (event) => {
@@ -2981,6 +3053,23 @@
 
       if (key === 'launcherHiddenUntilHover') {
         updatePanelHiddenState(panel);
+      }
+
+      if (key === 'uiMatchThemeEnabled') {
+        if (settings.uiMatchThemeEnabled) {
+          const selectedPreset = getThemePresetById(settings.selectedThemePresetId) || getThemePresetById(defaults.selectedThemePresetId);
+          if (selectedPreset && selectedPreset.theme) {
+            Object.assign(settings, derivePanelUiColorsFromTheme(selectedPreset.theme));
+          }
+        }
+        updateUiThemeControls(panel);
+      }
+
+      if (key.startsWith('panelUi') && settings.uiMatchThemeEnabled) {
+        settings.uiMatchThemeEnabled = false;
+        const matchToggle = panel.querySelector('input[data-key="uiMatchThemeEnabled"]');
+        if (matchToggle instanceof HTMLInputElement) matchToggle.checked = false;
+        updateUiThemeControls(panel);
       }
 
       scheduleSaveSettings();
