@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GPT-Unleashed
 // @namespace    https://openai.com/
-// @version      2.8.24
+// @version      2.8.25
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.24';
+  const SCRIPT_VERSION = '2.8.25';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -39,22 +39,22 @@
     pageBg: '#000000',
     pageText: '#f0f0f0',
 
-    userBubbleBg: '#020018',
-    userBubbleText: '#00e6ff',
+    userBubbleBg: '#000418',
+    userBubbleText: '#0093DB',
 
-    assistantBubbleBg: '#021f00',
-    assistantBubbleText: '#00ff73',
+    assistantBubbleBg: '#00C001',
+    assistantBubbleText: '#00FF75',
 
-    embedBg: '#222200',
-    embedText: '#f3c77b',
+    embedBg: '#0D0800',
+    embedText: '#F4F7F4',
 
-    composerBg: '#2a0001',
-    composerText: '#ff3c77',
+    composerBg: '#000000',
+    composerText: '#F9F06B',
 
     sidebarBg: '#000000',
-    sidebarText: '#c466ff',
-    sidebarHover: '#ff00ff',
-    sidebarHoverText: '#c466ff',
+    sidebarText: '#99C1F1',
+    sidebarHover: '#62A0EA',
+    sidebarHoverText: '#000313',
 
     chatTextAlign: 'left',
     chatFontFamily: 'inherit',
@@ -97,7 +97,10 @@
     launcherHiddenUntilHover: true,
     moveGuiDragEnabled: false,
     panelLeft: null,
-    panelTop: null
+    panelTop: null,
+
+    updateRawUrl: '',
+    autoCheckUpdates: true
   };
 
   const COLOR_KEYS = [
@@ -251,6 +254,8 @@
     merged.panelHidden = !!merged.panelHidden;
     merged.launcherHiddenUntilHover = !!merged.launcherHiddenUntilHover;
     merged.moveGuiDragEnabled = !!merged.moveGuiDragEnabled;
+    merged.autoCheckUpdates = merged.autoCheckUpdates !== false;
+    merged.updateRawUrl = typeof merged.updateRawUrl === 'string' ? merged.updateRawUrl.trim() : defaults.updateRawUrl;
     merged.panelLeft = Number.isFinite(merged.panelLeft) ? merged.panelLeft : null;
     merged.panelTop = Number.isFinite(merged.panelTop) ? merged.panelTop : null;
 
@@ -283,7 +288,8 @@
       'layoutAdvancedControlsEnabled',
       'layoutEmbedAlignmentLock',
       'codeSyntaxHighlightEnabled',
-      'uiMatchThemeEnabled'
+      'uiMatchThemeEnabled',
+      'autoCheckUpdates'
     ].includes(key)) {
       return !!value;
     }
@@ -295,6 +301,9 @@
     }
     if (key === 'panelPage') {
       return PANEL_PAGES.has(value) ? value : defaults.panelPage;
+    }
+    if (key === 'updateRawUrl') {
+      return typeof value === 'string' ? value.trim() : defaults.updateRawUrl;
     }
     return value;
   }
@@ -785,6 +794,39 @@
     });
   }
 
+  function findComposerAttachButton(shell) {
+    if (!(shell instanceof HTMLElement)) return null;
+    const candidates = [...shell.querySelectorAll('button, [role="button"]')].filter((node) => node instanceof HTMLElement);
+
+    for (const el of candidates) {
+      if (!(el instanceof HTMLElement)) continue;
+      const text = (el.textContent || '').trim();
+      const aria = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).toLowerCase();
+      if (text === '+' || /attach|upload|add file|plus/.test(aria)) {
+        return el;
+      }
+    }
+
+    return null;
+  }
+
+  function placePromptDockNearAttach(shell, dock) {
+    if (!(shell instanceof HTMLElement) || !(dock instanceof HTMLElement)) return;
+    const attachBtn = findComposerAttachButton(shell);
+    if (attachBtn && attachBtn.parentElement) {
+      attachBtn.insertAdjacentElement('afterend', dock);
+      return;
+    }
+
+    const toolbar = shell.querySelector('[class*="toolbar"], [class*="actions"], [data-testid*="composer"]');
+    if (toolbar instanceof HTMLElement) {
+      toolbar.prepend(dock);
+      return;
+    }
+
+    shell.prepend(dock);
+  }
+
   function ensureComposerPromptDock(shell, input) {
     if (!(shell instanceof HTMLElement)) return;
     if (!(input instanceof HTMLElement)) return;
@@ -797,8 +839,9 @@
         <button type="button" class="rabbit-composer-code-btn" aria-label="Prompt tools" title="Prompt tools">Prompt</button>
         <div class="rabbit-composer-prompt-menu" role="menu" aria-hidden="true"></div>
       `;
-      shell.appendChild(dock);
     }
+
+    placePromptDockNearAttach(shell, dock);
 
     const btn = dock.querySelector('.rabbit-composer-code-btn');
     const menu = dock.querySelector('.rabbit-composer-prompt-menu');
@@ -818,6 +861,60 @@
       menu.setAttribute('aria-hidden', 'false');
     });
   }
+
+  async function checkForUserscriptUpdate({ openInstall = false, silent = false } = {}) {
+    const configuredUrl = (settings.updateRawUrl || '').trim();
+    const fallbackUrl = (typeof GM_info === 'object' && GM_info && GM_info.script && (GM_info.script.downloadURL || GM_info.script.updateURL)) || '';
+    const rawUrl = configuredUrl || fallbackUrl;
+
+    if (!rawUrl) {
+      const message = 'Set a GitHub Raw userscript URL in Settings > Updates first.';
+      if (!silent) alert(message);
+      return { ok: false, message };
+    }
+
+    try {
+      const response = await fetch(`${rawUrl}${rawUrl.includes('?') ? '&' : '?'}_=${Date.now()}`, { cache: 'no-store' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const source = await response.text();
+      const match = source.match(/@version\s+([^\s]+)/);
+      const remoteVersion = match ? match[1].trim() : '';
+      const localVersion = SCRIPT_VERSION;
+      const parseVersion = (value) => String(value || '').split('.').map((part) => Number.parseInt(part, 10)).filter((n) => Number.isFinite(n));
+      const remoteParts = parseVersion(remoteVersion);
+      const localParts = parseVersion(localVersion);
+      const maxLen = Math.max(remoteParts.length, localParts.length, 3);
+      let comparison = 0;
+      for (let i = 0; i < maxLen; i += 1) {
+        const a = remoteParts[i] || 0;
+        const b = localParts[i] || 0;
+        if (a > b) { comparison = 1; break; }
+        if (a < b) { comparison = -1; break; }
+      }
+
+      if (comparison > 0) {
+        const message = `Update available: ${localVersion} → ${remoteVersion}`;
+        if (!silent) {
+          const wantsInstall = openInstall || confirm(`${message}
+
+Open the GitHub Raw install page now?`);
+          if (wantsInstall) window.open(rawUrl, '_blank', 'noopener,noreferrer');
+        }
+        return { ok: true, hasUpdate: true, message, rawUrl, remoteVersion, localVersion };
+      }
+
+      const message = comparison === 0
+        ? `You are up to date (${localVersion}).`
+        : `Installed version (${localVersion}) is newer than remote (${remoteVersion || 'unknown'}).`;
+      if (!silent) alert(message);
+      return { ok: true, hasUpdate: false, message, rawUrl, remoteVersion, localVersion };
+    } catch (error) {
+      const message = `Update check failed: ${error instanceof Error ? error.message : String(error)}`;
+      if (!silent) alert(message);
+      return { ok: false, message };
+    }
+  }
+
 
   function renderDeleteChatsList(panel) {
     const list = panel.querySelector('[data-role="delete-chats-list"]');
@@ -1597,8 +1694,8 @@
         z-index: 2147483644 !important;
         padding-top: 8px !important;
         padding-bottom: 8px !important;
-        padding-left: 58px !important;
-        padding-right: 58px !important;
+        padding-left: 14px !important;
+        padding-right: 14px !important;
         backdrop-filter: blur(10px) !important;
         border: 1px solid rgba(255,255,255,0.14) !important;
       }
@@ -1648,10 +1745,10 @@
       }
 
       .rabbit-composer-prompt-dock {
-        position: absolute;
-        left: 14px;
-        top: 50%;
-        transform: translateY(-50%);
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
         z-index: 2147483645;
         pointer-events: auto;
       }
@@ -1677,7 +1774,7 @@
       .rabbit-composer-prompt-menu {
         position: absolute;
         left: 0;
-        bottom: calc(100% + 8px);
+        top: calc(100% + 8px);
         z-index: 2147483646;
         display: none;
         min-width: 220px;
@@ -3053,6 +3150,23 @@
           </div>
 
           <div class="rabbit-group">
+            <div class="rabbit-group-title">Updates</div>
+            <label class="rabbit-row rabbit-font-row">
+              <span>GitHub Raw URL</span>
+              <input type="text" data-key="updateRawUrl" value="${escapeHtml(settings.updateRawUrl)}" placeholder="https://raw.githubusercontent.com/<user>/<repo>/<branch>/GPT-Unleashed-v2.8.user.js">
+            </label>
+            <label class="rabbit-row">
+              <span>Auto-check on load</span>
+              <input type="checkbox" data-key="autoCheckUpdates" ${settings.autoCheckUpdates ? 'checked' : ''}>
+            </label>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="check-update">Check for Updates</button>
+              <button type="button" data-action="install-from-raw">Install from Raw</button>
+            </div>
+            <div class="rabbit-note">Uses your GitHub Raw URL and compares @version before opening install.</div>
+          </div>
+
+          <div class="rabbit-group">
             <div class="rabbit-group-title">Export</div>
             <div class="rabbit-actions-row">
               <button type="button" data-action="export-script-settings">Export Userscript & Settings</button>
@@ -3531,6 +3645,16 @@
 
       if (action === 'export-chat') {
         setExportChatsModalOpen(panel, true);
+      }
+
+      if (action === 'check-update') {
+        checkForUserscriptUpdate({ openInstall: false, silent: false });
+        return;
+      }
+
+      if (action === 'install-from-raw') {
+        checkForUserscriptUpdate({ openInstall: true, silent: false });
+        return;
       }
 
       if (action === 'export-script-settings') {
@@ -4304,6 +4428,14 @@
       updatePanelHiddenState(panel);
     });
 
+    GM_registerMenuCommand('Check Script Updates', () => {
+      checkForUserscriptUpdate({ openInstall: false, silent: false });
+    });
+
+    GM_registerMenuCommand('Install from GitHub Raw', () => {
+      checkForUserscriptUpdate({ openInstall: true, silent: false });
+    });
+
     GM_registerMenuCommand('Reset Theme Editor', () => {
       settings = normalizeSettings(null);
       saveSettings();
@@ -4325,6 +4457,12 @@
     refreshAllStyling();
     observeDom();
     addMenuCommands();
+
+    if (settings.autoCheckUpdates) {
+      setTimeout(() => {
+        checkForUserscriptUpdate({ openInstall: false, silent: true });
+      }, 1800);
+    }
 
     window.addEventListener('resize', () => {
       const panel = document.getElementById(PANEL_ID);
