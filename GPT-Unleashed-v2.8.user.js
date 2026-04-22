@@ -94,6 +94,7 @@
 
     panelHidden: false,
     launcherHiddenUntilHover: true,
+    moveGuiDragEnabled: false,
     panelLeft: null,
     panelTop: null
   };
@@ -247,6 +248,7 @@
 
     merged.panelHidden = !!merged.panelHidden;
     merged.launcherHiddenUntilHover = !!merged.launcherHiddenUntilHover;
+    merged.moveGuiDragEnabled = !!merged.moveGuiDragEnabled;
     merged.panelLeft = Number.isFinite(merged.panelLeft) ? merged.panelLeft : null;
     merged.panelTop = Number.isFinite(merged.panelTop) ? merged.panelTop : null;
 
@@ -2560,6 +2562,7 @@
       featureThemeEnabled: 'Enable or disable all theme color styling applied by the script.',
       featureFontEnabled: 'Enable or disable script-managed chat and sidebar font settings.',
       launcherHiddenUntilHover: 'When enabled, the minimized launcher stays hidden until you hover over its area.',
+      moveGuiDragEnabled: 'Enables click-and-drag repositioning for the panel header and minimized launcher emblem.',
       codeSyntaxHighlightEnabled: 'Turn syntax highlighting colors for embedded code blocks on or off.',
       uiMatchThemeEnabled: 'Use the currently selected theme to automatically style the panel UI colors.'
     };
@@ -2969,6 +2972,10 @@
             <label class="rabbit-row">
               <span>Hide launcher until hover</span>
               <input type="checkbox" data-key="launcherHiddenUntilHover" ${settings.launcherHiddenUntilHover ? 'checked' : ''}>
+            </label>
+            <label class="rabbit-row">
+              <span>Move GUI by click + drag</span>
+              <input type="checkbox" data-key="moveGuiDragEnabled" ${settings.moveGuiDragEnabled ? 'checked' : ''}>
             </label>
           </div>
 
@@ -3639,6 +3646,7 @@
     let startTop = 0;
 
     handle.addEventListener('mousedown', (e) => {
+      if (!settings.moveGuiDragEnabled) return;
       if (settings.panelHidden) return;
       if (e.target.closest('button')) return;
 
@@ -3688,6 +3696,7 @@
     let draggedDistance = 0;
 
     launcherButton.addEventListener('mousedown', (event) => {
+      if (!settings.moveGuiDragEnabled) return;
       if (event.button !== 0) return;
       const rect = panel.getBoundingClientRect();
       holding = true;
