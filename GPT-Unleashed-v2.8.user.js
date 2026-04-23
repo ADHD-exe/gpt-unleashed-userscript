@@ -543,6 +543,28 @@
     return toAdd.length;
   }
 
+  function exportPromptsAsJson() {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      version: SCRIPT_VERSION,
+      prompts: Array.isArray(prompts) ? prompts : []
+    };
+    const filename = `gpt-unleashed-prompts-${formatTimestampForFilename(new Date())}.json`;
+    downloadTextFile(filename, JSON.stringify(payload, null, 2), 'application/json');
+  }
+
+  function filterPromptsBySearch(query, mode) {
+    const normalizedQuery = String(query || '').trim().toLowerCase();
+    const normalizedMode = mode === 'favorites' ? 'favorites' : 'all';
+    const source = normalizedMode === 'favorites' ? getFavoritePrompts() : prompts;
+    if (!normalizedQuery) return source;
+    return source.filter((item) => {
+      const title = String(item?.title || '').toLowerCase();
+      const text = String(item?.text || '').toLowerCase();
+      return title.includes(normalizedQuery) || text.includes(normalizedQuery);
+    });
+  }
+
   function setPendingPrompt(text) {
     if (!text) return;
     sessionStorage.setItem(PENDING_PROMPT_KEY, JSON.stringify({
@@ -715,6 +737,7 @@
       menu.classList.remove('open');
       menu.setAttribute('aria-hidden', 'true');
     });
+    document.querySelectorAll('.rabbit-composer-prompt-overlay').forEach((overlay) => overlay.remove());
   }
 
   function openPromptEditorPanel() {
@@ -724,6 +747,139 @@
     setActivePage(panel, 'prompts');
     updatePanelHiddenState(panel);
     saveSettings();
+  }
+
+  function openComposerPromptExplorer(input, mode = 'all') {
+    closeComposerPromptMenus();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'rabbit-composer-prompt-overlay';
+    overlay.innerHTML = `
+      <div class="rabbit-composer-prompt-dialog" role="dialog" aria-modal="true" aria-label="Prompt explorer">
+        <div class="rabbit-composer-prompt-header">
+          <strong>Prompt Explorer</strong>
+          <button type="button" data-action="composer-explorer-close">Close</button>
+        </div>
+        <div class="rabbit-composer-prompt-toolbar">
+          <input type="search" data-role="composer-explorer-search" placeholder="Search prompts by title or text...">
+          <div class="rabbit-composer-prompt-actions-inline">
+            <button type="button" data-action="composer-explorer-toggle-favorites">Favorites</button>
+            <button type="button" data-action="composer-explorer-import">Import</button>
+            <button type="button" data-action="composer-explorer-export">Export</button>
+            <button type="button" data-action="composer-explorer-create">Create</button>
+          </div>
+        </div>
+        <div class="rabbit-composer-prompt-results" data-role="composer-explorer-results"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const searchInput = overlay.querySelector('[data-role="composer-explorer-search"]');
+    const results = overlay.querySelector('[data-role="composer-explorer-results"]');
+    let activeMode = mode === 'favorites' ? 'favorites' : 'all';
+
+    const renderResults = () => {
+      if (!(results instanceof HTMLElement)) return;
+      const query = searchInput instanceof HTMLInputElement ? searchInput.value : '';
+      const filtered = filterPromptsBySearch(query, activeMode);
+      results.innerHTML = '';
+      if (!filtered.length) {
+        const empty = document.createElement('div');
+        empty.className = 'rabbit-composer-menu-empty';
+        empty.textContent = 'No prompts matched your search.';
+        results.appendChild(empty);
+        return;
+      }
+      filtered.forEach((prompt) => {
+        const row = document.createElement('div');
+        row.className = 'rabbit-composer-prompt-result';
+        row.innerHTML = `
+          <div class="rabbit-composer-prompt-result-text">
+            <div class="rabbit-composer-prompt-result-title"></div>
+            <div class="rabbit-composer-prompt-result-snippet"></div>
+          </div>
+          <div class="rabbit-composer-prompt-result-actions">
+            <button type="button" data-action="composer-explorer-insert" data-prompt-id="${escapeHtml(prompt.id)}">Insert</button>
+            <button type="button" data-action="composer-explorer-new-chat" data-prompt-id="${escapeHtml(prompt.id)}">New Chat</button>
+          </div>
+        `;
+        const titleNode = row.querySelector('.rabbit-composer-prompt-result-title');
+        const snippetNode = row.querySelector('.rabbit-composer-prompt-result-snippet');
+        if (titleNode) titleNode.textContent = prompt.title;
+        if (snippetNode) snippetNode.textContent = prompt.text.length > 160 ? `${prompt.text.slice(0, 160)}…` : prompt.text;
+        results.appendChild(row);
+      });
+    };
+
+    overlay.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target === overlay) {
+        overlay.remove();
+        return;
+      }
+      const btn = target.closest('button[data-action]');
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = btn.dataset.action;
+      if (action === 'composer-explorer-close') {
+        overlay.remove();
+        return;
+      }
+      if (action === 'composer-explorer-toggle-favorites') {
+        activeMode = activeMode === 'favorites' ? 'all' : 'favorites';
+        btn.textContent = activeMode === 'favorites' ? 'All' : 'Favorites';
+        renderResults();
+        return;
+      }
+      if (action === 'composer-explorer-export') {
+        exportPromptsAsJson();
+        return;
+      }
+      if (action === 'composer-explorer-create') {
+        overlay.remove();
+        openPromptEditorPanel();
+        return;
+      }
+      if (action === 'composer-explorer-import') {
+        const picker = document.createElement('input');
+        picker.type = 'file';
+        picker.accept = '.txt,.json';
+        picker.addEventListener('change', () => {
+          const file = picker.files && picker.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = typeof reader.result === 'string' ? reader.result : '';
+            let payload = result;
+            try { payload = JSON.parse(result); } catch { /* plain text */ }
+            importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+            renderResults();
+          };
+          reader.readAsText(file);
+        }, { once: true });
+        picker.click();
+        return;
+      }
+      if (action === 'composer-explorer-insert') {
+        const promptItem = prompts.find((item) => item.id === btn.dataset.promptId);
+        if (!promptItem) return;
+        insertPromptIntoComposer(promptItem.text, input);
+        overlay.remove();
+        return;
+      }
+      if (action === 'composer-explorer-new-chat') {
+        const promptItem = prompts.find((item) => item.id === btn.dataset.promptId);
+        if (!promptItem) return;
+        overlay.remove();
+        startNewChatWithPrompt(promptItem.text);
+      }
+    });
+
+    if (searchInput instanceof HTMLInputElement) {
+      searchInput.addEventListener('input', renderResults);
+      setTimeout(() => searchInput.focus(), 10);
+    }
+    renderResults();
   }
 
   function buildComposerPromptMenu(menu, mode, input) {
@@ -767,7 +923,10 @@
       });
     }
     menu.appendChild(listWrap);
+    menu.appendChild(makeActionButton('Search / Expand Prompt List', 'composer-menu-explore'));
     menu.appendChild(makeActionButton('Create New Prompt', 'composer-menu-create'));
+    menu.appendChild(makeActionButton('Export Prompts (JSON)', 'composer-menu-export'));
+    menu.appendChild(makeActionButton('Import Prompts (File)', 'composer-menu-import'));
 
     menu.querySelectorAll('button').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -785,6 +944,36 @@
         if (action === 'composer-menu-create') {
           closeComposerPromptMenus();
           openPromptEditorPanel();
+          return;
+        }
+        if (action === 'composer-menu-explore') {
+          openComposerPromptExplorer(input, normalizedMode);
+          return;
+        }
+        if (action === 'composer-menu-export') {
+          exportPromptsAsJson();
+          closeComposerPromptMenus();
+          return;
+        }
+        if (action === 'composer-menu-import') {
+          const picker = document.createElement('input');
+          picker.type = 'file';
+          picker.accept = '.txt,.json';
+          picker.addEventListener('change', () => {
+            const file = picker.files && picker.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = typeof reader.result === 'string' ? reader.result : '';
+              let payload = result;
+              try { payload = JSON.parse(result); } catch { /* plain text */ }
+              importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+              buildComposerPromptMenu(menu, normalizedMode, input);
+              menu.classList.add('open');
+            };
+            reader.readAsText(file);
+          }, { once: true });
+          picker.click();
           return;
         }
         if (action === 'composer-menu-insert') {
@@ -1822,6 +2011,89 @@ Open the GitHub Raw install page now?`);
         padding: 4px 6px;
         font-size: 11px;
         opacity: 0.78;
+      }
+
+      .rabbit-composer-prompt-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .rabbit-composer-prompt-dialog {
+        width: min(760px, 96vw);
+        max-height: min(80vh, 760px);
+        overflow: hidden;
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 82%, #0f1116);
+        color: var(--rabbit-composer-text);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        box-shadow: 0 18px 44px rgba(0,0,0,0.48);
+      }
+
+      .rabbit-composer-prompt-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .rabbit-composer-prompt-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .rabbit-composer-prompt-actions-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .rabbit-composer-prompt-results {
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 10px;
+        padding: 8px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .rabbit-composer-prompt-result {
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        background: rgba(255,255,255,0.03);
+      }
+
+      .rabbit-composer-prompt-result-title {
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .rabbit-composer-prompt-result-snippet {
+        font-size: 11px;
+        opacity: 0.82;
+        white-space: pre-wrap;
+      }
+
+      .rabbit-composer-prompt-result-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
       }
 
       /* =========================
