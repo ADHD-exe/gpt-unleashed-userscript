@@ -947,6 +947,9 @@
       menu.classList.remove('open');
       menu.setAttribute('aria-hidden', 'true');
     });
+    document.querySelectorAll('.rabbit-composer-code-btn[aria-expanded="true"]').forEach((btn) => {
+      btn.setAttribute('aria-expanded', 'false');
+    });
     document.querySelectorAll('.rabbit-composer-prompt-overlay').forEach((overlay) => overlay.remove());
   }
 
@@ -1350,7 +1353,7 @@
     if (anchorData?.container instanceof HTMLElement) {
       const existingBtn = anchorData.container.querySelector('[data-testid="composer-button-prompts"]');
       if (existingBtn instanceof HTMLElement && existingBtn !== dock) {
-        existingBtn.remove();
+        existingBtn.closest('.rabbit-composer-prompt-dock')?.remove();
       }
       if (anchorData.anchor instanceof Node) {
         anchorData.container.insertBefore(dock, anchorData.anchor);
@@ -1378,11 +1381,12 @@
       dock = document.createElement('div');
       dock.className = 'rabbit-composer-prompt-dock';
       dock.dataset.testid = 'composer-button-prompts';
+      const menuId = `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
       dock.innerHTML = `
-        <button type="button" class="rabbit-composer-code-btn" data-testid="composer-button-prompts" aria-label="Prompts" title="Prompts">
+        <button type="button" class="rabbit-composer-code-btn" data-testid="composer-button-prompts" aria-label="Prompts" title="Prompts" aria-haspopup="menu" aria-expanded="false" aria-controls="${menuId}">
           <span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>
         </button>
-        <div class="rabbit-composer-prompt-menu" role="menu" aria-hidden="true"></div>
+        <div id="${menuId}" class="rabbit-composer-prompt-menu" role="menu" aria-hidden="true"></div>
       `;
     }
 
@@ -1415,6 +1419,7 @@
       buildComposerPromptMenu(menu, 'root', input);
       menu.classList.add('open');
       menu.setAttribute('aria-hidden', 'false');
+      btn.setAttribute('aria-expanded', 'true');
     };
 
     btn.addEventListener('click', (event) => {
