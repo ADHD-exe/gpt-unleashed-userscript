@@ -510,18 +510,13 @@
     const createdAt = typeof item === 'object' && typeof item.createdAt === 'string'
       ? item.createdAt
       : new Date().toISOString();
-    const tags = typeof item === 'object' && Array.isArray(item.tags)
-      ? item.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
-      : [];
-
-    return { id, title, text, favorite, pinned, type, createdAt, tags };
     const rawTags = typeof item === 'object' ? item.tags : [];
     const tags = Array.isArray(rawTags)
       ? rawTags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean).slice(0, 24)
       : String(rawTags || '').split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean).slice(0, 24);
     const expanded = typeof item === 'object' ? !!item.expanded : false;
 
-    return { id, title, text, favorite, tags, expanded };
+    return { id, title, text, favorite, pinned, type, createdAt, tags, expanded };
   }
 
   function parseTagsInput(input) {
@@ -869,6 +864,14 @@
     });
   }
 
+  function refreshPromptViews() {
+    const panel = document.getElementById(PANEL_ID);
+    if (panel instanceof HTMLElement) {
+      renderPromptsList(panel);
+    }
+    renderFloatingPinnedPrompts();
+  }
+
   function openPromptReviewModal(promptItem) {
     if (!promptItem) return;
     document.querySelectorAll('.rabbit-prompt-review-overlay').forEach((node) => node.remove());
@@ -920,7 +923,7 @@
       if (action === 'float-unpin') {
         prompts = prompts.map((item) => item.id === promptId ? { ...item, pinned: false } : item);
         savePrompts();
-        renderFloatingPinnedPrompts();
+        refreshPromptViews();
         return;
       }
       if (action === 'float-review') {
@@ -4223,17 +4226,13 @@ Open the GitHub Raw install page now?`);
         const titleInput = panel.querySelector('[data-role="prompt-title"]');
         const textInput = panel.querySelector('[data-role="prompt-text"]');
         const typeInput = panel.querySelector('[data-role="prompt-type"]');
-        const status = panel.querySelector('[data-role="prompt-status"]');
-        const title = titleInput instanceof HTMLInputElement ? titleInput.value.trim() : '';
-        const text = textInput instanceof HTMLTextAreaElement ? textInput.value.trim() : '';
-        const type = typeInput instanceof HTMLSelectElement && typeInput.value === 'ai' ? 'ai' : 'user';
-        const normalized = normalizePrompt({ title, text, type }, title || 'Prompt');
         const tagsInput = panel.querySelector('[data-role="prompt-tags"]');
         const status = panel.querySelector('[data-role="prompt-status"]');
         const title = titleInput instanceof HTMLInputElement ? titleInput.value.trim() : '';
         const text = textInput instanceof HTMLTextAreaElement ? textInput.value.trim() : '';
+        const type = typeInput instanceof HTMLSelectElement && typeInput.value === 'ai' ? 'ai' : 'user';
         const tags = tagsInput instanceof HTMLInputElement ? parseTagsInput(tagsInput.value) : [];
-        const normalized = normalizePrompt({ title, text, tags }, title || 'Prompt');
+        const normalized = normalizePrompt({ title, text, type, tags }, title || 'Prompt');
         if (!normalized) {
           if (status) status.textContent = 'Add a title and prompt text first.';
           return;
@@ -4245,8 +4244,7 @@ Open the GitHub Raw install page now?`);
         if (typeInput instanceof HTMLSelectElement) typeInput.value = 'user';
         if (tagsInput) tagsInput.value = '';
         if (status) status.textContent = `Saved "${normalized.title}".`;
-        renderPromptsList(panel);
-        renderFloatingPinnedPrompts();
+        refreshPromptViews();
       }
 
       if (action === 'prompt-insert-draft') {
@@ -4327,8 +4325,7 @@ Open the GitHub Raw install page now?`);
           return { ...item, pinned: nextPinned };
         });
         savePrompts();
-        renderPromptsList(panel);
-        renderFloatingPinnedPrompts();
+        refreshPromptViews();
         if (status) status.textContent = `${nextPinned ? 'Pinned' : 'Unpinned'} "${prompts[promptIndex].title}".`;
       }
 
@@ -4337,6 +4334,8 @@ Open the GitHub Raw install page now?`);
         const promptItem = prompts.find((item) => item.id === promptId);
         if (!promptItem) return;
         openPromptReviewModal(promptItem);
+      }
+
       if (action === 'prompt-expand-toggle') {
         const promptId = btn.dataset.promptId;
         const promptIndex = prompts.findIndex((item) => item.id === promptId);
@@ -4623,16 +4622,18 @@ Open the GitHub Raw install page now?`);
       card.style.left = `${rect.left}px`;
       card.style.top = `${rect.top}px`;
       card.style.right = 'auto';
-    });
-
-    window.addEventListener('mousemove', (event) => {
-      if (!dragging) return;
-      card.style.left = `${Math.max(6, startLeft + (event.clientX - startX))}px`;
-      card.style.top = `${Math.max(6, startTop + (event.clientY - startY))}px`;
-    });
-
-    window.addEventListener('mouseup', () => {
-      dragging = false;
+      const onMouseMove = (moveEvent) => {
+        if (!dragging) return;
+        card.style.left = `${Math.max(6, startLeft + (moveEvent.clientX - startX))}px`;
+        card.style.top = `${Math.max(6, startTop + (moveEvent.clientY - startY))}px`;
+      };
+      const onMouseUp = () => {
+        dragging = false;
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
     });
   }
 
