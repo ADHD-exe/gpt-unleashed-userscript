@@ -1268,11 +1268,54 @@
     return null;
   }
 
+  function findComposerPromptAnchor(shell, input) {
+    if (!(shell instanceof HTMLElement)) return null;
+
+    const anchorSelectors = [
+      'button[data-testid*="send"]',
+      'button[aria-label*="Send" i]',
+      'button[title*="Send" i]',
+      'button[data-testid*="composer"]',
+      '[class*="send"] button',
+      '[class*="composer"] button',
+      '[class*="toolbar"] button',
+      '[class*="actions"] button'
+    ];
+
+    for (const selector of anchorSelectors) {
+      const candidate = shell.querySelector(selector);
+      if (!(candidate instanceof HTMLElement)) continue;
+      const container = candidate.parentElement;
+      if (container instanceof HTMLElement) {
+        return { container, anchor: candidate };
+      }
+    }
+
+    const attachBtn = findComposerAttachButton(shell);
+    if (attachBtn instanceof HTMLElement && attachBtn.parentElement instanceof HTMLElement) {
+      return { container: attachBtn.parentElement, anchor: attachBtn };
+    }
+
+    if (input instanceof HTMLElement && input.parentElement instanceof HTMLElement) {
+      return { container: input.parentElement, anchor: input.nextElementSibling };
+    }
+
+    return { container: shell, anchor: shell.firstElementChild };
+  }
+
   function placePromptDockNearAttach(shell, dock) {
     if (!(shell instanceof HTMLElement) || !(dock instanceof HTMLElement)) return;
-    const attachBtn = findComposerAttachButton(shell);
-    if (attachBtn && attachBtn.parentElement) {
-      attachBtn.insertAdjacentElement('afterend', dock);
+    const anchorData = findComposerPromptAnchor(shell, null);
+    if (anchorData?.container instanceof HTMLElement) {
+      const existingBtn = anchorData.container.querySelector('[data-testid="composer-button-prompts"]');
+      if (existingBtn instanceof HTMLElement && existingBtn !== dock) {
+        existingBtn.remove();
+      }
+      if (anchorData.anchor instanceof Node) {
+        anchorData.container.insertBefore(dock, anchorData.anchor);
+      } else {
+        anchorData.container.appendChild(dock);
+      }
       return;
     }
 
@@ -1293,13 +1336,26 @@
     if (!(dock instanceof HTMLElement)) {
       dock = document.createElement('div');
       dock.className = 'rabbit-composer-prompt-dock';
+      dock.dataset.testid = 'composer-button-prompts';
       dock.innerHTML = `
-        <button type="button" class="rabbit-composer-code-btn" aria-label="Prompt tools" title="Prompt tools">Prompt</button>
+        <button type="button" class="rabbit-composer-code-btn" aria-label="Prompt tools" title="Prompt tools">
+          <span class="rabbit-composer-code-btn-icon" aria-hidden="true">✦</span>
+          <span class="rabbit-composer-code-btn-text">Prompt</span>
+        </button>
         <div class="rabbit-composer-prompt-menu" role="menu" aria-hidden="true"></div>
       `;
     }
 
-    placePromptDockNearAttach(shell, dock);
+    const anchorData = findComposerPromptAnchor(shell, input);
+    if (anchorData?.container instanceof HTMLElement) {
+      if (anchorData.anchor instanceof Node) {
+        anchorData.container.insertBefore(dock, anchorData.anchor);
+      } else {
+        anchorData.container.appendChild(dock);
+      }
+    } else {
+      placePromptDockNearAttach(shell, dock);
+    }
 
     const btn = dock.querySelector('.rabbit-composer-code-btn');
     const menu = dock.querySelector('.rabbit-composer-prompt-menu');
@@ -2210,6 +2266,7 @@ Open the GitHub Raw install page now?`);
         margin-left: 8px;
         z-index: 2147483645;
         pointer-events: auto;
+        flex: 0 0 auto;
       }
 
       .rabbit-composer-code-btn {
@@ -2228,6 +2285,19 @@ Open the GitHub Raw install page now?`);
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        gap: 6px;
+        position: relative;
+        z-index: 2147483646;
+        pointer-events: auto;
+      }
+
+      .rabbit-composer-code-btn-icon {
+        font-size: 12px;
+        line-height: 1;
+      }
+
+      .rabbit-composer-code-btn-text {
+        line-height: 1;
       }
 
       .rabbit-composer-prompt-menu {
@@ -5078,6 +5148,7 @@ Open the GitHub Raw install page now?`);
       const shell = findComposerShellForInput(input);
       if (shell instanceof HTMLElement) {
         shell.classList.add('rabbit-composer-shell');
+        ensureComposerPromptDock(shell, input);
       }
       input.classList.add('rabbit-composer-input');
     }
