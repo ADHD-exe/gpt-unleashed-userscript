@@ -2844,11 +2844,20 @@ Open the GitHub Raw install page now?`);
 
       #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover .rabbit-panel-launcher {
         opacity: 0;
+        pointer-events: none;
       }
 
       #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover:hover .rabbit-panel-launcher,
       #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover:focus-within .rabbit-panel-launcher {
         opacity: 1;
+        pointer-events: auto;
+      }
+
+      @media (hover: none), (pointer: coarse) {
+        #${PANEL_ID}.rabbit-panel-hidden.rabbit-launcher-hidden-until-hover .rabbit-panel-launcher {
+          opacity: 1;
+          pointer-events: auto;
+        }
       }
 
       #${PANEL_ID} .rabbit-launcher-btn {

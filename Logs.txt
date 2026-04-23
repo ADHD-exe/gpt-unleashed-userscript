@@ -1,1 +1,2 @@
 Enter details of what changes have been made, bugs fixed, and why new code was added or removed in this file.
+2026-04-23: Fixed minimized launcher button visibility/accessibility. Root issue: `launcherHiddenUntilHover` set launcher opacity to 0 without touch-device fallback, making the button effectively undiscoverable on non-hover devices. Added pointer-events gating and a coarse-pointer media-query override so the launcher remains visible/clickable on touch devices.
