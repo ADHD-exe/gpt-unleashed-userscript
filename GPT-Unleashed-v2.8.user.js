@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GPT-Unleashed
 // @namespace    https://openai.com/
-// @version      2.8.25
+// @version      2.8.26
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.25';
+  const SCRIPT_VERSION = '2.8.26';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -1318,7 +1318,7 @@
     }
 
     if (input instanceof HTMLElement && input.parentElement instanceof HTMLElement) {
-      return { container: input.parentElement, anchor: input.nextElementSibling };
+      return { container: input.parentElement, anchor: input.nextElementSibling || shell.firstElementChild };
     }
 
     return { container: shell, anchor: shell.firstElementChild };
@@ -1372,16 +1372,24 @@
     shell.prepend(dock);
   }
 
+  let lastClickedPromptBtn = null;
+
   function ensureComposerPromptDock(shell, input) {
     if (!(shell instanceof HTMLElement)) return;
     if (!(input instanceof HTMLElement)) return;
 
     let dock = shell.querySelector('.rabbit-composer-prompt-dock');
-    if (!(dock instanceof HTMLElement)) {
+    const needsNewDock = !(dock instanceof HTMLElement);
+    if (needsNewDock) {
       dock = document.createElement('div');
       dock.className = 'rabbit-composer-prompt-dock';
       dock.dataset.testid = 'composer-button-prompts';
-      const menuId = `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    const existingMenuId = needsNewDock ? null : dock.querySelector('.rabbit-composer-prompt-menu')?.id;
+    const menuId = existingMenuId || `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
+    
+    if (needsNewDock) {
       dock.innerHTML = `
         <button type="button" class="rabbit-composer-code-btn" data-testid="composer-button-prompts" aria-label="Prompts" title="Prompts" aria-haspopup="menu" aria-expanded="false" aria-controls="${menuId}">
           <span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>
@@ -1390,7 +1398,7 @@
       `;
     }
 
-    const anchorData = findComposerPromptAnchor(shell, null);
+    const anchorData = findComposerPromptAnchor(shell, input);
     if (anchorData?.container instanceof HTMLElement) {
       if (anchorData.anchor instanceof Node) {
         anchorData.container.insertBefore(dock, anchorData.anchor);
@@ -1408,10 +1416,10 @@
     if (btn.dataset.bound === '1') return;
     btn.dataset.bound = '1';
 
-    let suppressNextClick = false;
     const onPromptButtonActivate = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      lastClickedPromptBtn = btn;
       const opening = !menu.classList.contains('open');
       closeComposerPromptMenus();
       if (!opening) return;
@@ -1422,17 +1430,15 @@
       btn.setAttribute('aria-expanded', 'true');
     };
 
-    btn.addEventListener('click', (event) => {
-      if (suppressNextClick) {
-        suppressNextClick = false;
-        return;
-      }
+    btn.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
       onPromptButtonActivate(event);
     });
-    btn.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      suppressNextClick = true;
-      onPromptButtonActivate(event);
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
     });
   }
 
