@@ -4309,7 +4309,6 @@ Open the GitHub Raw install page now?`);
       const shell = findComposerShellForInput(input);
       if (shell instanceof HTMLElement) {
         shell.classList.add('rabbit-composer-shell');
-        ensureComposerPromptDock(shell, input);
       }
       input.classList.add('rabbit-composer-input');
     }
