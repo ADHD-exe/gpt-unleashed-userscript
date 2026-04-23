@@ -1276,6 +1276,11 @@
       return { container: plusButton.parentElement, anchor: plusButton };
     }
 
+    const attachBtn = findComposerAttachButton(shell);
+    if (attachBtn instanceof HTMLElement && attachBtn.parentElement instanceof HTMLElement) {
+      return { container: attachBtn.parentElement, anchor: attachBtn };
+    }
+
     const anchorSelectors = [
       'button[data-testid*="send"]',
       'button[aria-label*="Send" i]',
@@ -1296,16 +1301,34 @@
       }
     }
 
-    const attachBtn = findComposerAttachButton(shell);
-    if (attachBtn instanceof HTMLElement && attachBtn.parentElement instanceof HTMLElement) {
-      return { container: attachBtn.parentElement, anchor: attachBtn };
-    }
-
     if (input instanceof HTMLElement && input.parentElement instanceof HTMLElement) {
       return { container: input.parentElement, anchor: input.nextElementSibling };
     }
 
     return { container: shell, anchor: shell.firstElementChild };
+  }
+
+  function positionComposerPromptMenu(menu, btn) {
+    if (!(menu instanceof HTMLElement) || !(btn instanceof HTMLElement)) return;
+    const margin = 8;
+    const rect = btn.getBoundingClientRect();
+    menu.style.visibility = 'hidden';
+    menu.classList.add('open');
+    const menuRect = menu.getBoundingClientRect();
+    menu.classList.remove('open');
+    menu.style.visibility = '';
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxLeft = Math.max(margin, viewportWidth - menuRect.width - margin);
+    const maxTop = Math.max(margin, viewportHeight - menuRect.height - margin);
+    const preferredLeft = rect.left;
+    const preferredTop = rect.bottom + margin;
+    const left = Math.min(maxLeft, Math.max(margin, preferredLeft));
+    const top = Math.min(maxTop, Math.max(margin, preferredTop));
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
   }
 
   function placePromptDockNearAttach(shell, dock) {
@@ -1374,6 +1397,7 @@
       const opening = !menu.classList.contains('open');
       closeComposerPromptMenus();
       if (!opening) return;
+      positionComposerPromptMenu(menu, btn);
       buildComposerPromptMenu(menu, 'root', input);
       menu.classList.add('open');
       menu.setAttribute('aria-hidden', 'false');
@@ -2267,7 +2291,7 @@ Open the GitHub Raw install page now?`);
         position: relative;
         display: inline-flex;
         align-items: center;
-        margin-left: 8px;
+        margin-right: 8px;
         z-index: 2147483645;
         pointer-events: auto;
         flex: 0 0 auto;
@@ -2307,9 +2331,9 @@ Open the GitHub Raw install page now?`);
       }
 
       .rabbit-composer-prompt-menu {
-        position: absolute;
+        position: fixed;
         left: 0;
-        top: calc(100% + 8px);
+        top: 0;
         z-index: 2147483646;
         display: none;
         min-width: 220px;
