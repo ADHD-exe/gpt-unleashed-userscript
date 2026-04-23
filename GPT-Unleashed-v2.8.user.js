@@ -515,6 +515,29 @@
       : [];
 
     return { id, title, text, favorite, pinned, type, createdAt, tags };
+    const rawTags = typeof item === 'object' ? item.tags : [];
+    const tags = Array.isArray(rawTags)
+      ? rawTags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean).slice(0, 24)
+      : String(rawTags || '').split(',').map((tag) => tag.trim().toLowerCase()).filter(Boolean).slice(0, 24);
+    const expanded = typeof item === 'object' ? !!item.expanded : false;
+
+    return { id, title, text, favorite, tags, expanded };
+  }
+
+  function parseTagsInput(input) {
+    return String(input || '')
+      .split(',')
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean)
+      .slice(0, 24);
+  }
+
+  function getAllPromptTags() {
+    const tags = new Set();
+    prompts.forEach((item) => {
+      (item?.tags || []).forEach((tag) => tags.add(String(tag || '').trim().toLowerCase()));
+    });
+    return [...tags].sort((a, b) => a.localeCompare(b));
   }
 
   function importPromptsFromPayload(payload, sourceLabel = 'Imported Prompt') {
@@ -565,15 +588,20 @@
     downloadTextFile(filename, JSON.stringify(payload, null, 2), 'application/json');
   }
 
-  function filterPromptsBySearch(query, mode) {
+  function filterPromptsBySearch(query, mode, activeTags = []) {
     const normalizedQuery = String(query || '').trim().toLowerCase();
     const normalizedMode = mode === 'favorites' ? 'favorites' : 'all';
+    const normalizedTags = Array.isArray(activeTags)
+      ? activeTags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean)
+      : [];
     const source = normalizedMode === 'favorites' ? getFavoritePrompts() : prompts;
-    if (!normalizedQuery) return source;
     return source.filter((item) => {
       const title = String(item?.title || '').toLowerCase();
       const text = String(item?.text || '').toLowerCase();
-      return title.includes(normalizedQuery) || text.includes(normalizedQuery);
+      const tags = Array.isArray(item?.tags) ? item.tags.map((tag) => String(tag || '').toLowerCase()) : [];
+      const queryMatch = !normalizedQuery || title.includes(normalizedQuery) || text.includes(normalizedQuery) || tags.some((tag) => tag.includes(normalizedQuery));
+      const tagMatch = !normalizedTags.length || normalizedTags.every((tag) => tags.includes(tag));
+      return queryMatch && tagMatch;
     });
   }
 
@@ -720,7 +748,14 @@
 
       const snippet = document.createElement('div');
       snippet.className = 'rabbit-prompt-snippet';
-      snippet.textContent = prompt.text.length > 160 ? `${prompt.text.slice(0, 160)}…` : prompt.text;
+      const isExpanded = !!prompt.expanded;
+      snippet.textContent = isExpanded ? prompt.text : (prompt.text.length > 160 ? `${prompt.text.slice(0, 160)}…` : prompt.text);
+
+      const tags = document.createElement('div');
+      tags.className = 'rabbit-prompt-tags';
+      if (Array.isArray(prompt.tags) && prompt.tags.length) {
+        tags.textContent = `Tags: ${prompt.tags.join(', ')}`;
+      }
 
       const actions = document.createElement('div');
       actions.className = 'rabbit-prompt-actions';
@@ -754,19 +789,45 @@
       reviewBtn.dataset.action = 'prompt-review';
       reviewBtn.dataset.promptId = prompt.id;
       reviewBtn.textContent = 'Review';
+      const expandBtn = document.createElement('button');
+      expandBtn.type = 'button';
+      expandBtn.dataset.action = 'prompt-expand-toggle';
+      expandBtn.dataset.promptId = prompt.id;
+      expandBtn.textContent = isExpanded ? 'Collapse' : 'Expand';
+
+      const enhanceBtn = document.createElement('button');
+      enhanceBtn.type = 'button';
+      enhanceBtn.dataset.action = 'prompt-enhance';
+      enhanceBtn.dataset.promptId = prompt.id;
+      enhanceBtn.textContent = 'Enhance with AI';
 
       actions.appendChild(insertBtn);
       actions.appendChild(newChatBtn);
       actions.appendChild(favoriteBtn);
       actions.appendChild(pinBtn);
       actions.appendChild(reviewBtn);
+      actions.appendChild(expandBtn);
+      actions.appendChild(enhanceBtn);
 
       item.appendChild(title);
       item.appendChild(snippet);
+      item.appendChild(tags);
       item.appendChild(actions);
       list.appendChild(item);
       });
     });
+  }
+
+  function buildPromptEnhanceInstruction(promptText) {
+    const source = String(promptText || '').trim();
+    if (!source) return '';
+    return [
+      'Please improve the following prompt for clarity, specificity, and output quality.',
+      'Return only the improved prompt text (no explanation).',
+      '',
+      '--- ORIGINAL PROMPT ---',
+      source
+    ].join('\n');
   }
 
   function getFavoritePrompts() {
@@ -907,11 +968,14 @@
         </div>
         <div class="rabbit-composer-prompt-toolbar">
           <input type="search" data-role="composer-explorer-search" placeholder="Search prompts by title or text...">
+          <input type="text" data-role="composer-explorer-tag-filter" placeholder="Filter tags (comma-separated)">
           <div class="rabbit-composer-prompt-actions-inline">
+            <button type="button" data-action="composer-explorer-expand-all">Expand</button>
             <button type="button" data-action="composer-explorer-toggle-favorites">Favorites</button>
             <button type="button" data-action="composer-explorer-import">Import</button>
             <button type="button" data-action="composer-explorer-export">Export</button>
             <button type="button" data-action="composer-explorer-create">Create</button>
+            <button type="button" data-action="composer-explorer-enhance-draft">Enhance Draft</button>
           </div>
         </div>
         <div class="rabbit-composer-prompt-results" data-role="composer-explorer-results"></div>
@@ -920,13 +984,16 @@
     document.body.appendChild(overlay);
 
     const searchInput = overlay.querySelector('[data-role="composer-explorer-search"]');
+    const tagInput = overlay.querySelector('[data-role="composer-explorer-tag-filter"]');
     const results = overlay.querySelector('[data-role="composer-explorer-results"]');
     let activeMode = mode === 'favorites' ? 'favorites' : 'all';
+    let expandedAll = false;
 
     const renderResults = () => {
       if (!(results instanceof HTMLElement)) return;
       const query = searchInput instanceof HTMLInputElement ? searchInput.value : '';
-      const filtered = filterPromptsBySearch(query, activeMode);
+      const tagFilters = tagInput instanceof HTMLInputElement ? parseTagsInput(tagInput.value) : [];
+      const filtered = filterPromptsBySearch(query, activeMode, tagFilters);
       results.innerHTML = '';
       if (!filtered.length) {
         const empty = document.createElement('div');
@@ -942,16 +1009,20 @@
           <div class="rabbit-composer-prompt-result-text">
             <div class="rabbit-composer-prompt-result-title"></div>
             <div class="rabbit-composer-prompt-result-snippet"></div>
+            <div class="rabbit-composer-prompt-result-tags"></div>
           </div>
           <div class="rabbit-composer-prompt-result-actions">
             <button type="button" data-action="composer-explorer-insert" data-prompt-id="${escapeHtml(prompt.id)}">Insert</button>
             <button type="button" data-action="composer-explorer-new-chat" data-prompt-id="${escapeHtml(prompt.id)}">New Chat</button>
+            <button type="button" data-action="composer-explorer-enhance-item" data-prompt-id="${escapeHtml(prompt.id)}">Enhance</button>
           </div>
         `;
         const titleNode = row.querySelector('.rabbit-composer-prompt-result-title');
         const snippetNode = row.querySelector('.rabbit-composer-prompt-result-snippet');
+        const tagsNode = row.querySelector('.rabbit-composer-prompt-result-tags');
         if (titleNode) titleNode.textContent = prompt.title;
-        if (snippetNode) snippetNode.textContent = prompt.text.length > 160 ? `${prompt.text.slice(0, 160)}…` : prompt.text;
+        if (snippetNode) snippetNode.textContent = expandedAll ? prompt.text : (prompt.text.length > 160 ? `${prompt.text.slice(0, 160)}…` : prompt.text);
+        if (tagsNode) tagsNode.textContent = Array.isArray(prompt.tags) && prompt.tags.length ? `#${prompt.tags.join(' #')}` : '';
         results.appendChild(row);
       });
     };
@@ -976,6 +1047,12 @@
         renderResults();
         return;
       }
+      if (action === 'composer-explorer-expand-all') {
+        expandedAll = !expandedAll;
+        btn.textContent = expandedAll ? 'Collapse' : 'Expand';
+        renderResults();
+        return;
+      }
       if (action === 'composer-explorer-export') {
         exportPromptsAsJson();
         return;
@@ -983,6 +1060,16 @@
       if (action === 'composer-explorer-create') {
         overlay.remove();
         openPromptEditorPanel();
+        return;
+      }
+      if (action === 'composer-explorer-enhance-draft') {
+        const draft = input instanceof HTMLTextAreaElement || input?.getAttribute?.('contenteditable') === 'true'
+          ? (input.value || input.textContent || '')
+          : '';
+        const enhancedInstruction = buildPromptEnhanceInstruction(draft);
+        if (!enhancedInstruction) return;
+        insertPromptIntoComposer(enhancedInstruction, input);
+        overlay.remove();
         return;
       }
       if (action === 'composer-explorer-import') {
@@ -1017,12 +1104,28 @@
         if (!promptItem) return;
         overlay.remove();
         startNewChatWithPrompt(promptItem.text);
+        return;
+      }
+      if (action === 'composer-explorer-enhance-item') {
+        const promptItem = prompts.find((item) => item.id === btn.dataset.promptId);
+        if (!promptItem) return;
+        const enhancedInstruction = buildPromptEnhanceInstruction(promptItem.text);
+        if (!enhancedInstruction) return;
+        insertPromptIntoComposer(enhancedInstruction, input);
+        overlay.remove();
       }
     });
 
     if (searchInput instanceof HTMLInputElement) {
       searchInput.addEventListener('input', renderResults);
       setTimeout(() => searchInput.focus(), 10);
+    }
+    if (tagInput instanceof HTMLInputElement) {
+      const allTags = getAllPromptTags();
+      if (allTags.length) {
+        tagInput.title = `Available tags: ${allTags.join(', ')}`;
+      }
+      tagInput.addEventListener('input', renderResults);
     }
     renderResults();
   }
@@ -1070,6 +1173,7 @@
     menu.appendChild(listWrap);
     menu.appendChild(makeActionButton('Search / Expand Prompt List', 'composer-menu-explore'));
     menu.appendChild(makeActionButton('Create New Prompt', 'composer-menu-create'));
+    menu.appendChild(makeActionButton('Enhance Current Prompt with AI', 'composer-menu-enhance'));
     menu.appendChild(makeActionButton('Export Prompts (JSON)', 'composer-menu-export'));
     menu.appendChild(makeActionButton('Import Prompts (File)', 'composer-menu-import'));
 
@@ -1089,6 +1193,19 @@
         if (action === 'composer-menu-create') {
           closeComposerPromptMenus();
           openPromptEditorPanel();
+          return;
+        }
+        if (action === 'composer-menu-enhance') {
+          const draft = input instanceof HTMLTextAreaElement || input?.getAttribute?.('contenteditable') === 'true'
+            ? (input.value || input.textContent || '')
+            : '';
+          const enhancedInstruction = buildPromptEnhanceInstruction(draft);
+          if (!enhancedInstruction) {
+            closeComposerPromptMenus();
+            return;
+          }
+          insertPromptIntoComposer(enhancedInstruction, input);
+          closeComposerPromptMenus();
           return;
         }
         if (action === 'composer-menu-explore') {
@@ -2194,6 +2311,7 @@ Open the GitHub Raw install page now?`);
       .rabbit-composer-prompt-toolbar {
         display: flex;
         flex-direction: column;
+        flex-wrap: wrap;
         gap: 8px;
       }
 
@@ -2233,6 +2351,12 @@ Open the GitHub Raw install page now?`);
         font-size: 11px;
         opacity: 0.82;
         white-space: pre-wrap;
+      }
+
+      .rabbit-composer-prompt-result-tags {
+        font-size: 10px;
+        opacity: 0.72;
+        margin-top: 4px;
       }
 
       .rabbit-composer-prompt-result-actions {
@@ -2886,6 +3010,11 @@ Open the GitHub Raw install page now?`);
         font-size: 10px;
         opacity: 0.78;
         white-space: pre-wrap;
+      }
+
+      #${PANEL_ID} .rabbit-prompt-tags {
+        font-size: 10px;
+        opacity: 0.68;
       }
 
       #${PANEL_ID} .rabbit-prompt-actions {
@@ -3609,10 +3738,13 @@ Open the GitHub Raw install page now?`);
                 <option value="user">User Prompt</option>
                 <option value="ai">AI Prompt</option>
               </select>
+              <span>Tags</span>
+              <input type="text" data-role="prompt-tags" placeholder="productivity, coding, writing">
             </label>
             <div class="rabbit-actions-row">
               <button type="button" data-action="prompt-add">Save Prompt</button>
               <button type="button" data-action="prompt-insert-draft">Insert Now</button>
+              <button type="button" data-action="prompt-enhance-draft">Enhance Draft</button>
             </div>
           </div>
 
@@ -4096,6 +4228,12 @@ Open the GitHub Raw install page now?`);
         const text = textInput instanceof HTMLTextAreaElement ? textInput.value.trim() : '';
         const type = typeInput instanceof HTMLSelectElement && typeInput.value === 'ai' ? 'ai' : 'user';
         const normalized = normalizePrompt({ title, text, type }, title || 'Prompt');
+        const tagsInput = panel.querySelector('[data-role="prompt-tags"]');
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        const title = titleInput instanceof HTMLInputElement ? titleInput.value.trim() : '';
+        const text = textInput instanceof HTMLTextAreaElement ? textInput.value.trim() : '';
+        const tags = tagsInput instanceof HTMLInputElement ? parseTagsInput(tagsInput.value) : [];
+        const normalized = normalizePrompt({ title, text, tags }, title || 'Prompt');
         if (!normalized) {
           if (status) status.textContent = 'Add a title and prompt text first.';
           return;
@@ -4105,6 +4243,7 @@ Open the GitHub Raw install page now?`);
         if (titleInput) titleInput.value = '';
         if (textInput) textInput.value = '';
         if (typeInput instanceof HTMLSelectElement) typeInput.value = 'user';
+        if (tagsInput) tagsInput.value = '';
         if (status) status.textContent = `Saved "${normalized.title}".`;
         renderPromptsList(panel);
         renderFloatingPinnedPrompts();
@@ -4122,6 +4261,22 @@ Open the GitHub Raw install page now?`);
           if (status) status.textContent = 'Inserted into the current chat.';
         } else {
           if (status) status.textContent = 'Could not find an active composer.';
+        }
+      }
+
+      if (action === 'prompt-enhance-draft') {
+        const textInput = panel.querySelector('[data-role="prompt-text"]');
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        const text = textInput instanceof HTMLTextAreaElement ? textInput.value.trim() : '';
+        if (!text) {
+          if (status) status.textContent = 'Type a prompt to enhance first.';
+          return;
+        }
+        const enhancedInstruction = buildPromptEnhanceInstruction(text);
+        if (insertPromptIntoComposer(enhancedInstruction)) {
+          if (status) status.textContent = 'Enhancement instruction inserted into the composer.';
+        } else if (status) {
+          status.textContent = 'Could not find an active composer.';
         }
       }
 
@@ -4182,6 +4337,27 @@ Open the GitHub Raw install page now?`);
         const promptItem = prompts.find((item) => item.id === promptId);
         if (!promptItem) return;
         openPromptReviewModal(promptItem);
+      if (action === 'prompt-expand-toggle') {
+        const promptId = btn.dataset.promptId;
+        const promptIndex = prompts.findIndex((item) => item.id === promptId);
+        if (promptIndex < 0) return;
+        const nextExpanded = !prompts[promptIndex].expanded;
+        prompts = prompts.map((item, index) => (index === promptIndex ? { ...item, expanded: nextExpanded } : item));
+        savePrompts();
+        renderPromptsList(panel);
+      }
+
+      if (action === 'prompt-enhance') {
+        const promptId = btn.dataset.promptId;
+        const promptItem = prompts.find((item) => item.id === promptId);
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        if (!promptItem) return;
+        const enhancedInstruction = buildPromptEnhanceInstruction(promptItem.text);
+        if (insertPromptIntoComposer(enhancedInstruction)) {
+          if (status) status.textContent = `Enhancement instruction inserted for "${promptItem.title}".`;
+        } else if (status) {
+          status.textContent = 'Could not find an active composer.';
+        }
       }
 
       if (action === 'prompt-fetch') {
