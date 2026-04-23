@@ -826,6 +826,21 @@
     ].join('\n');
   }
 
+  function getPrimaryComposerInput() {
+    const inputs = getComposerInputCandidates();
+    return inputs.length ? inputs[0] : null;
+  }
+
+  function getComposerDraftText(input) {
+    if (input instanceof HTMLTextAreaElement) {
+      return String(input.value || '').trim();
+    }
+    if (input instanceof HTMLElement && input.getAttribute('contenteditable') === 'true') {
+      return String(input.textContent || '').trim();
+    }
+    return '';
+  }
+
   function getFavoritePrompts() {
     return prompts.filter((item) => item && item.favorite);
   }
@@ -1070,9 +1085,7 @@
         return;
       }
       if (action === 'composer-explorer-enhance-draft') {
-        const draft = input instanceof HTMLTextAreaElement || input?.getAttribute?.('contenteditable') === 'true'
-          ? (input.value || input.textContent || '')
-          : '';
+        const draft = getComposerDraftText(input);
         const enhancedInstruction = buildPromptEnhanceInstruction(draft);
         if (!enhancedInstruction) return;
         insertPromptIntoComposer(enhancedInstruction, input);
@@ -1203,9 +1216,7 @@
           return;
         }
         if (action === 'composer-menu-enhance') {
-          const draft = input instanceof HTMLTextAreaElement || input?.getAttribute?.('contenteditable') === 'true'
-            ? (input.value || input.textContent || '')
-            : '';
+          const draft = getComposerDraftText(input);
           const enhancedInstruction = buildPromptEnhanceInstruction(draft);
           if (!enhancedInstruction) {
             closeComposerPromptMenus();
@@ -3863,6 +3874,11 @@ Open the GitHub Raw install page now?`);
         <div class="rabbit-page" data-page="prompts">
           <div class="rabbit-group">
             <div class="rabbit-group-title">Saved Prompts</div>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="prompt-open-explorer">Search / Expand Prompt List</button>
+              <button type="button" data-action="prompt-open-favorites">View Favorite Prompts</button>
+              <button type="button" data-action="prompt-enhance-current">Enhance Current Prompt with AI</button>
+            </div>
             <div class="rabbit-prompt-list" data-role="prompt-list"></div>
           </div>
 
@@ -3903,6 +3919,8 @@ Open the GitHub Raw install page now?`);
               <input type="text" data-role="prompt-url" placeholder="https://example.com/prompts.json">
             </label>
             <div class="rabbit-actions-row">
+              <button type="button" data-action="prompt-export-json">Export Prompts (JSON)</button>
+              <button type="button" data-action="prompt-import-file">Import Prompts (File)</button>
               <button type="button" data-action="prompt-fetch">Fetch URL</button>
             </div>
             <div class="rabbit-note">Supports JSON arrays of {title,text} or plain text.</div>
@@ -4497,6 +4515,41 @@ Open the GitHub Raw install page now?`);
           if (status) status.textContent = `Enhancement instruction inserted for "${promptItem.title}".`;
         } else if (status) {
           status.textContent = 'Could not find an active composer.';
+        }
+      }
+
+      if (action === 'prompt-open-explorer' || action === 'prompt-open-favorites') {
+        const preferredInput = getPrimaryComposerInput();
+        const mode = action === 'prompt-open-favorites' ? 'favorites' : 'all';
+        openComposerPromptExplorer(preferredInput, mode);
+      }
+
+      if (action === 'prompt-enhance-current') {
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        const input = getPrimaryComposerInput();
+        const draft = getComposerDraftText(input);
+        const enhancedInstruction = buildPromptEnhanceInstruction(draft);
+        if (!enhancedInstruction) {
+          if (status) status.textContent = 'Type a prompt in the composer first.';
+          return;
+        }
+        if (insertPromptIntoComposer(enhancedInstruction, input)) {
+          if (status) status.textContent = 'Enhancement instruction inserted into the composer.';
+        } else if (status) {
+          status.textContent = 'Could not find an active composer.';
+        }
+      }
+
+      if (action === 'prompt-export-json') {
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        exportPromptsAsJson();
+        if (status) status.textContent = 'Exported prompts as JSON.';
+      }
+
+      if (action === 'prompt-import-file') {
+        const fileInput = panel.querySelector('input[type="file"][data-action="prompt-file"]');
+        if (fileInput instanceof HTMLInputElement) {
+          fileInput.click();
         }
       }
 
