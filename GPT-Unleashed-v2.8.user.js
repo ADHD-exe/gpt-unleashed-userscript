@@ -172,6 +172,7 @@
   let settings = loadSettings();
   let prompts = loadPrompts();
   let savedThemes = loadSavedThemes();
+  let floatingPromptEventsBound = false;
   let saveTimer = null;
   let refreshTimer = null;
   let mutationObserver = null;
@@ -502,6 +503,18 @@
       : `p_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
     const favorite = typeof item === 'object' ? !!item.favorite : false;
+    const pinned = typeof item === 'object' ? !!item.pinned : false;
+    const type = typeof item === 'object' && (item.type === 'ai' || item.type === 'user')
+      ? item.type
+      : 'user';
+    const createdAt = typeof item === 'object' && typeof item.createdAt === 'string'
+      ? item.createdAt
+      : new Date().toISOString();
+    const tags = typeof item === 'object' && Array.isArray(item.tags)
+      ? item.tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
+      : [];
+
+    return { id, title, text, favorite, pinned, type, createdAt, tags };
     const rawTags = typeof item === 'object' ? item.tags : [];
     const tags = Array.isArray(rawTags)
       ? rawTags.map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean).slice(0, 24)
@@ -561,6 +574,7 @@
     if (!toAdd.length) return 0;
     prompts = [...prompts, ...toAdd];
     savePrompts();
+    renderFloatingPinnedPrompts();
     return toAdd.length;
   }
 
@@ -710,9 +724,23 @@
       return;
     }
 
-    prompts.forEach((prompt) => {
+    const sections = [
+      { key: 'pinned', label: 'Pinned Prompts', items: prompts.filter((item) => item?.pinned) },
+      { key: 'user', label: 'User Prompts', items: prompts.filter((item) => item && item.type !== 'ai') },
+      { key: 'ai', label: 'AI Prompts', items: prompts.filter((item) => item?.type === 'ai') }
+    ];
+
+    sections.forEach((section) => {
+      if (!section.items.length) return;
+      const heading = document.createElement('div');
+      heading.className = 'rabbit-prompt-section-title';
+      heading.textContent = `${section.label} (${section.items.length})`;
+      list.appendChild(heading);
+
+      section.items.forEach((prompt) => {
       const item = document.createElement('div');
       item.className = 'rabbit-prompt-item';
+      if (prompt.pinned) item.classList.add('is-pinned');
 
       const title = document.createElement('div');
       title.className = 'rabbit-prompt-title';
@@ -750,6 +778,17 @@
       favoriteBtn.dataset.promptId = prompt.id;
       favoriteBtn.textContent = prompt.favorite ? '★ Favorite' : '☆ Favorite';
 
+      const pinBtn = document.createElement('button');
+      pinBtn.type = 'button';
+      pinBtn.dataset.action = 'prompt-pin-toggle';
+      pinBtn.dataset.promptId = prompt.id;
+      pinBtn.textContent = prompt.pinned ? 'Unpin' : 'Pin';
+
+      const reviewBtn = document.createElement('button');
+      reviewBtn.type = 'button';
+      reviewBtn.dataset.action = 'prompt-review';
+      reviewBtn.dataset.promptId = prompt.id;
+      reviewBtn.textContent = 'Review';
       const expandBtn = document.createElement('button');
       expandBtn.type = 'button';
       expandBtn.dataset.action = 'prompt-expand-toggle';
@@ -765,6 +804,8 @@
       actions.appendChild(insertBtn);
       actions.appendChild(newChatBtn);
       actions.appendChild(favoriteBtn);
+      actions.appendChild(pinBtn);
+      actions.appendChild(reviewBtn);
       actions.appendChild(expandBtn);
       actions.appendChild(enhanceBtn);
 
@@ -773,6 +814,7 @@
       item.appendChild(tags);
       item.appendChild(actions);
       list.appendChild(item);
+      });
     });
   }
 
@@ -790,6 +832,110 @@
 
   function getFavoritePrompts() {
     return prompts.filter((item) => item && item.favorite);
+  }
+
+  function formatPromptTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Unknown time';
+    return date.toLocaleString();
+  }
+
+  function renderFloatingPinnedPrompts() {
+    document.querySelectorAll('.rabbit-prompt-float').forEach((node) => node.remove());
+    const pinned = prompts.filter((item) => item?.pinned);
+    if (!pinned.length) return;
+
+    pinned.forEach((prompt, index) => {
+      const card = document.createElement('div');
+      card.className = 'rabbit-prompt-float';
+      card.dataset.promptId = prompt.id;
+      card.style.top = `${80 + (index * 24)}px`;
+      card.style.right = '16px';
+      card.innerHTML = `
+        <div class="rabbit-prompt-float-head">
+          <strong>${escapeHtml(prompt.title)}</strong>
+          <button type="button" data-action="float-hide" data-prompt-id="${escapeHtml(prompt.id)}">Hide</button>
+        </div>
+        <div class="rabbit-prompt-float-body">${escapeHtml(prompt.text.length > 200 ? `${prompt.text.slice(0, 200)}…` : prompt.text)}</div>
+        <div class="rabbit-prompt-float-actions">
+          <button type="button" data-action="float-prev" data-prompt-id="${escapeHtml(prompt.id)}">Previous</button>
+          <button type="button" data-action="float-next" data-prompt-id="${escapeHtml(prompt.id)}">Next</button>
+          <button type="button" data-action="float-review" data-prompt-id="${escapeHtml(prompt.id)}">Review</button>
+          <button type="button" data-action="float-unpin" data-prompt-id="${escapeHtml(prompt.id)}">Unpin</button>
+        </div>
+      `;
+      document.body.appendChild(card);
+      makeFloatingPromptDraggable(card, card.querySelector('.rabbit-prompt-float-head'));
+    });
+  }
+
+  function openPromptReviewModal(promptItem) {
+    if (!promptItem) return;
+    document.querySelectorAll('.rabbit-prompt-review-overlay').forEach((node) => node.remove());
+    const overlay = document.createElement('div');
+    overlay.className = 'rabbit-prompt-review-overlay';
+    overlay.innerHTML = `
+      <div class="rabbit-prompt-review-card">
+        <div class="rabbit-prompt-review-head">
+          <strong>${escapeHtml(promptItem.title)}</strong>
+          <button type="button" data-action="prompt-review-close">Close</button>
+        </div>
+        <div class="rabbit-prompt-review-meta">
+          <span>Type: ${escapeHtml(promptItem.type || 'user')}</span>
+          <span>Created: ${escapeHtml(formatPromptTime(promptItem.createdAt))}</span>
+        </div>
+        <pre class="rabbit-prompt-review-text">${escapeHtml(promptItem.text || '')}</pre>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  function bindFloatingPromptEvents() {
+    if (floatingPromptEventsBound) return;
+    floatingPromptEventsBound = true;
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.classList.contains('rabbit-prompt-review-overlay')) {
+        target.remove();
+        return;
+      }
+      const btn = target.closest('button[data-action^="float-"], button[data-action="prompt-review-close"]');
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = btn.dataset.action || '';
+      if (action === 'prompt-review-close') {
+        btn.closest('.rabbit-prompt-review-overlay')?.remove();
+        return;
+      }
+      const promptId = btn.dataset.promptId || '';
+      const pinned = prompts.filter((item) => item?.pinned);
+      if (!pinned.length) return;
+      const idx = pinned.findIndex((item) => item.id === promptId);
+      const currentIndex = idx >= 0 ? idx : 0;
+      if (action === 'float-hide') {
+        const card = btn.closest('.rabbit-prompt-float');
+        if (card instanceof HTMLElement) card.style.display = 'none';
+        return;
+      }
+      if (action === 'float-unpin') {
+        prompts = prompts.map((item) => item.id === promptId ? { ...item, pinned: false } : item);
+        savePrompts();
+        renderFloatingPinnedPrompts();
+        return;
+      }
+      if (action === 'float-review') {
+        const promptItem = prompts.find((item) => item.id === promptId);
+        openPromptReviewModal(promptItem);
+        return;
+      }
+      if (action === 'float-next' || action === 'float-prev') {
+        const nextIndex = action === 'float-next'
+          ? (currentIndex + 1) % pinned.length
+          : (currentIndex - 1 + pinned.length) % pinned.length;
+        const nextPrompt = pinned[nextIndex];
+        if (nextPrompt) openPromptReviewModal(nextPrompt);
+      }
+    });
   }
 
   function closeComposerPromptMenus() {
@@ -2831,6 +2977,15 @@ Open the GitHub Raw install page now?`);
         gap: 6px;
       }
 
+      #${PANEL_ID} .rabbit-prompt-section-title {
+        margin-top: 6px;
+        font-size: 10px;
+        opacity: 0.9;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
       #${PANEL_ID} .rabbit-prompt-item {
         border: 1px solid var(--rabbit-panel-outline);
         background: var(--rabbit-panel-bubble);
@@ -2839,6 +2994,11 @@ Open the GitHub Raw install page now?`);
         display: flex;
         flex-direction: column;
         gap: 4px;
+      }
+
+      #${PANEL_ID} .rabbit-prompt-item.is-pinned {
+        border-color: #ffd54f;
+        box-shadow: 0 0 0 1px rgba(255, 213, 79, 0.25) inset;
       }
 
       #${PANEL_ID} .rabbit-prompt-title {
@@ -2868,6 +3028,97 @@ Open the GitHub Raw install page now?`);
         font-size: 10px;
         line-height: 1.2;
         opacity: 0.72;
+      }
+
+      .rabbit-prompt-float {
+        position: fixed;
+        z-index: 2147483644;
+        width: min(320px, calc(100vw - 20px));
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.22);
+        background: rgba(16, 18, 28, 0.94);
+        color: #eaf2ff;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+      }
+
+      .rabbit-prompt-float-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 9px;
+        border-bottom: 1px solid rgba(255,255,255,0.16);
+        cursor: move;
+        gap: 8px;
+      }
+
+      .rabbit-prompt-float-head strong {
+        font-size: 11px;
+      }
+
+      .rabbit-prompt-float-body {
+        padding: 8px 9px;
+        font-size: 11px;
+        line-height: 1.35;
+        max-height: 120px;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+
+      .rabbit-prompt-float-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 0 9px 9px;
+      }
+
+      .rabbit-prompt-float button {
+        font-size: 10px;
+        border-radius: 7px;
+      }
+
+      .rabbit-prompt-review-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483645;
+        background: rgba(0, 0, 0, 0.62);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+      }
+
+      .rabbit-prompt-review-card {
+        width: min(760px, calc(100vw - 16px));
+        max-height: min(82vh, 760px);
+        overflow: auto;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.22);
+        background: #10131f;
+        color: #eaf2ff;
+        padding: 12px;
+      }
+
+      .rabbit-prompt-review-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .rabbit-prompt-review-meta {
+        margin-top: 8px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        opacity: 0.86;
+      }
+
+      .rabbit-prompt-review-text {
+        margin-top: 10px;
+        white-space: pre-wrap;
+        font-size: 12px;
+        line-height: 1.45;
       }
 
       #${PANEL_ID} .rabbit-modal {
@@ -3482,6 +3733,11 @@ Open the GitHub Raw install page now?`);
               <textarea data-role="prompt-text" placeholder="Type or paste a prompt..."></textarea>
             </label>
             <label class="rabbit-row rabbit-font-row">
+              <span>Prompt type</span>
+              <select data-role="prompt-type">
+                <option value="user">User Prompt</option>
+                <option value="ai">AI Prompt</option>
+              </select>
               <span>Tags</span>
               <input type="text" data-role="prompt-tags" placeholder="productivity, coding, writing">
             </label>
@@ -3966,6 +4222,12 @@ Open the GitHub Raw install page now?`);
       if (action === 'prompt-add') {
         const titleInput = panel.querySelector('[data-role="prompt-title"]');
         const textInput = panel.querySelector('[data-role="prompt-text"]');
+        const typeInput = panel.querySelector('[data-role="prompt-type"]');
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        const title = titleInput instanceof HTMLInputElement ? titleInput.value.trim() : '';
+        const text = textInput instanceof HTMLTextAreaElement ? textInput.value.trim() : '';
+        const type = typeInput instanceof HTMLSelectElement && typeInput.value === 'ai' ? 'ai' : 'user';
+        const normalized = normalizePrompt({ title, text, type }, title || 'Prompt');
         const tagsInput = panel.querySelector('[data-role="prompt-tags"]');
         const status = panel.querySelector('[data-role="prompt-status"]');
         const title = titleInput instanceof HTMLInputElement ? titleInput.value.trim() : '';
@@ -3980,9 +4242,11 @@ Open the GitHub Raw install page now?`);
         savePrompts();
         if (titleInput) titleInput.value = '';
         if (textInput) textInput.value = '';
+        if (typeInput instanceof HTMLSelectElement) typeInput.value = 'user';
         if (tagsInput) tagsInput.value = '';
         if (status) status.textContent = `Saved "${normalized.title}".`;
         renderPromptsList(panel);
+        renderFloatingPinnedPrompts();
       }
 
       if (action === 'prompt-insert-draft') {
@@ -4052,6 +4316,27 @@ Open the GitHub Raw install page now?`);
         if (status) status.textContent = `${nextFavorite ? 'Added' : 'Removed'} "${prompts[promptIndex].title}" ${nextFavorite ? 'to' : 'from'} favorites.`;
       }
 
+      if (action === 'prompt-pin-toggle') {
+        const promptId = btn.dataset.promptId;
+        const promptIndex = prompts.findIndex((item) => item.id === promptId);
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        if (promptIndex < 0) return;
+        const nextPinned = !prompts[promptIndex].pinned;
+        prompts = prompts.map((item, index) => {
+          if (index !== promptIndex) return item;
+          return { ...item, pinned: nextPinned };
+        });
+        savePrompts();
+        renderPromptsList(panel);
+        renderFloatingPinnedPrompts();
+        if (status) status.textContent = `${nextPinned ? 'Pinned' : 'Unpinned'} "${prompts[promptIndex].title}".`;
+      }
+
+      if (action === 'prompt-review') {
+        const promptId = btn.dataset.promptId;
+        const promptItem = prompts.find((item) => item.id === promptId);
+        if (!promptItem) return;
+        openPromptReviewModal(promptItem);
       if (action === 'prompt-expand-toggle') {
         const promptId = btn.dataset.promptId;
         const promptIndex = prompts.findIndex((item) => item.id === promptId);
@@ -4096,6 +4381,7 @@ Open the GitHub Raw install page now?`);
           }
           const added = importPromptsFromPayload(payload, 'URL Prompt');
           renderPromptsList(panel);
+          renderFloatingPinnedPrompts();
           if (status) status.textContent = added ? `Imported ${added} prompt(s).` : 'No prompts found.';
         }).catch((err) => {
           if (status) status.textContent = `Fetch failed: ${err.message}`;
@@ -4233,6 +4519,7 @@ Open the GitHub Raw install page now?`);
         }
         const added = importPromptsFromPayload(payload, file.name || 'File Prompt');
         renderPromptsList(panel);
+        renderFloatingPinnedPrompts();
         if (status) status.textContent = added ? `Imported ${added} prompt(s).` : 'No prompts found.';
         t.value = '';
       };
@@ -4261,6 +4548,8 @@ Open the GitHub Raw install page now?`);
       });
     }
 
+    bindFloatingPromptEvents();
+    renderFloatingPinnedPrompts();
     makeDraggable(panel, panel.querySelector('.rabbit-panel-header'));
     makeLauncherDraggable(panel, panel.querySelector('.rabbit-panel-launcher .rabbit-launcher-emblem'), () => {
       suppressLauncherToggleClick = true;
@@ -4312,6 +4601,38 @@ Open the GitHub Raw install page now?`);
       if (!dragging) return;
       dragging = false;
       saveSettings();
+    });
+  }
+
+  function makeFloatingPromptDraggable(card, handle) {
+    if (!(card instanceof HTMLElement) || !(handle instanceof HTMLElement)) return;
+    let dragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    handle.addEventListener('mousedown', (event) => {
+      if (event.target instanceof HTMLElement && event.target.closest('button')) return;
+      const rect = card.getBoundingClientRect();
+      dragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      startLeft = rect.left;
+      startTop = rect.top;
+      card.style.left = `${rect.left}px`;
+      card.style.top = `${rect.top}px`;
+      card.style.right = 'auto';
+    });
+
+    window.addEventListener('mousemove', (event) => {
+      if (!dragging) return;
+      card.style.left = `${Math.max(6, startLeft + (event.clientX - startX))}px`;
+      card.style.top = `${Math.max(6, startTop + (event.clientY - startY))}px`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      dragging = false;
     });
   }
 
