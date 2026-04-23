@@ -1386,7 +1386,7 @@
       `;
     }
 
-    const anchorData = findComposerPromptAnchor(shell, input);
+    const anchorData = findComposerPromptAnchor(shell, null);
     if (anchorData?.container instanceof HTMLElement) {
       if (anchorData.anchor instanceof Node) {
         anchorData.container.insertBefore(dock, anchorData.anchor);
