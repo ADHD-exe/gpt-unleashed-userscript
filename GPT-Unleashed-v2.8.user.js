@@ -1605,7 +1605,8 @@
 
     for (const el of candidates) {
       if (!(el instanceof HTMLElement)) continue;
-      if (el.offsetParent === null) continue;
+      const elRect = el.getBoundingClientRect();
+      if (elRect.width === 0 && elRect.height === 0) continue;
       const text = (el.textContent || '').trim();
       const aria = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).toLowerCase();
       const dataTestId = (el.getAttribute('data-testid') || '').toLowerCase();
@@ -1621,7 +1622,11 @@
     }
 
     const leftMostButton = candidates
-      .filter((el) => el instanceof HTMLElement && el.offsetParent !== null)
+      .filter((el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        const rect = el.getBoundingClientRect();
+        return !(rect.width === 0 && rect.height === 0);
+      })
       .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)[0];
     if (leftMostButton instanceof HTMLElement) return leftMostButton;
 
@@ -1720,7 +1725,49 @@
   function ensureComposerPromptDock(shell, input) {
     if (!(shell instanceof HTMLElement)) return;
     if (!(input instanceof HTMLElement)) return;
+    if (shell.querySelector('.rabbit-composer-prompt-dock')) return;
 
+    const anchor = shell.querySelector('#composer-plus-btn, [data-testid="composer-plus-btn"]') || findComposerAttachButton(shell);
+    if (!(anchor instanceof HTMLElement) || !(anchor.parentElement instanceof HTMLElement)) return;
+    const container = anchor.parentElement;
+
+    const dock = document.createElement('div');
+    dock.className = 'rabbit-composer-prompt-dock';
+    dock.dataset.testid = 'composer-button-prompts';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rabbit-composer-code-btn';
+    btn.setAttribute('data-testid', 'composer-button-prompts');
+    btn.setAttribute('aria-label', 'Prompts');
+    btn.innerHTML = COMPOSER_PROMPT_ICON;
+    dock.appendChild(btn);
+
+    const menuId = `rabbit-menu-${Math.random().toString(36).slice(2, 9)}`;
+    const menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'rabbit-composer-prompt-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-hidden', 'true');
+    dock.appendChild(menu);
+
+    container.insertBefore(dock, anchor);
+
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (menu.classList.contains('open')) {
+        closeComposerPromptMenus();
+        return;
+      }
+
+      closeComposerPromptMenus();
+      positionComposerPromptMenu(menu, btn);
+      buildComposerPromptMenu(menu, 'all', input);
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      btn.setAttribute('aria-expanded', 'true');
     const anchorData = findComposerPromptAnchor(shell, input);
     const nativePlusBtn = anchorData?.anchor instanceof HTMLButtonElement ? anchorData.anchor : null;
     if (!(nativePlusBtn instanceof HTMLButtonElement)) return;
@@ -6263,7 +6310,9 @@
 
     document.addEventListener('click', (event) => {
       const target = event.target;
-      if (target instanceof HTMLElement && target.closest('.rabbit-composer-prompt-dock')) return;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest('.rabbit-composer-prompt-dock')) return;
+      if (target.closest('.rabbit-composer-prompt-menu')) return;
       closeComposerPromptMenus();
     });
 
