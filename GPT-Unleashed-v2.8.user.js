@@ -1602,9 +1602,15 @@
   function findComposerAttachButton(shell) {
     if (!(shell instanceof HTMLElement)) return null;
     const candidates = [...shell.querySelectorAll('button, [role="button"]')].filter((node) => node instanceof HTMLElement);
+    const isVisibleCandidate = (el) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const elRect = el.getBoundingClientRect();
+      return !(elRect.width === 0 && elRect.height === 0);
+    };
 
     for (const el of candidates) {
       if (!(el instanceof HTMLElement)) continue;
+      if (!isVisibleCandidate(el)) continue;
       const elRect = el.getBoundingClientRect();
       if (elRect.width === 0 && elRect.height === 0) continue;
       const text = (el.textContent || '').trim();
@@ -1622,6 +1628,7 @@
     }
 
     const leftMostButton = candidates
+      .filter((el) => isVisibleCandidate(el))
       .filter((el) => {
         if (!(el instanceof HTMLElement)) return false;
         const rect = el.getBoundingClientRect();
@@ -1801,6 +1808,7 @@
     if (nativePlusBtn.dataset.bound === '1') return;
     nativePlusBtn.dataset.bound = '1';
 
+    btn.addEventListener('click', (event) => {
     const onPromptButtonActivate = (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1809,6 +1817,11 @@
       const opening = !menu.classList.contains('open');
       closeComposerPromptMenus();
       if (!opening) return;
+      positionComposerPromptMenu(menu, btn);
+      buildComposerPromptMenu(menu, 'all', input);
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      btn.setAttribute('aria-expanded', 'true');
       positionComposerPromptMenu(menu, nativePlusBtn);
       buildComposerPromptMenu(menu, 'root', input, nativePlusBtn);
       menu.classList.add('open');
