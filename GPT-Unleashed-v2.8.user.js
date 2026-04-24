@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         GPT-Unleashed
 // @namespace    https://openai.com/
-// @version      2.8.25
+// @version      2.8.26
 // @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '2.8.25';
+  const SCRIPT_VERSION = '2.8.26';
   if (window.__rabbitChatGptThemeV28) return;
   window.__rabbitChatGptThemeV28 = { version: SCRIPT_VERSION };
 
@@ -1082,6 +1082,21 @@
     ].join('\n');
   }
 
+  function getPrimaryComposerInput() {
+    const inputs = getComposerInputCandidates();
+    return inputs.length ? inputs[0] : null;
+  }
+
+  function getComposerDraftText(input) {
+    if (input instanceof HTMLTextAreaElement) {
+      return String(input.value || '').trim();
+    }
+    if (input instanceof HTMLElement && input.getAttribute('contenteditable') === 'true') {
+      return String(input.textContent || '').trim();
+    }
+    return '';
+  }
+
   function getFavoritePrompts() {
     return prompts.filter((item) => item && item.favorite);
   }
@@ -1101,7 +1116,7 @@
       const card = document.createElement('div');
       card.className = 'rabbit-prompt-float';
       card.dataset.promptId = prompt.id;
-      card.style.top = `${80 + (index * 24)}px`;
+      card.style.top = `${80 + (index * 170)}px`;
       card.style.right = '16px';
       card.innerHTML = `
         <div class="rabbit-prompt-float-head">
@@ -1138,7 +1153,10 @@
       <div class="rabbit-prompt-review-card">
         <div class="rabbit-prompt-review-head">
           <strong>${escapeHtml(promptItem.title)}</strong>
-          <button type="button" data-action="prompt-review-close">Close</button>
+          <div style="display:flex;gap:6px;">
+            <button type="button" data-action="prompt-review-insert" data-prompt-id="${escapeHtml(promptItem.id)}">Insert</button>
+            <button type="button" data-action="prompt-review-close">Close</button>
+          </div>
         </div>
         <div class="rabbit-prompt-review-meta">
           <span>Type: ${escapeHtml(promptItem.type || 'user')}</span>
@@ -1160,11 +1178,19 @@
         target.remove();
         return;
       }
-      const btn = target.closest('button[data-action^="float-"], button[data-action="prompt-review-close"]');
+      const btn = target.closest('button[data-action^="float-"], button[data-action="prompt-review-close"], button[data-action="prompt-review-insert"]');
       if (!(btn instanceof HTMLButtonElement)) return;
       const action = btn.dataset.action || '';
       if (action === 'prompt-review-close') {
         btn.closest('.rabbit-prompt-review-overlay')?.remove();
+        return;
+      }
+      if (action === 'prompt-review-insert') {
+        const pid = btn.dataset.promptId || '';
+        const item = prompts.find((prompt) => prompt.id === pid);
+        if (item && insertPromptIntoComposer(item.text)) {
+          btn.closest('.rabbit-prompt-review-overlay')?.remove();
+        }
         return;
       }
       const promptId = btn.dataset.promptId || '';
@@ -1193,7 +1219,17 @@
           ? (currentIndex + 1) % pinned.length
           : (currentIndex - 1 + pinned.length) % pinned.length;
         const nextPrompt = pinned[nextIndex];
-        if (nextPrompt) openPromptReviewModal(nextPrompt);
+        if (!nextPrompt) return;
+        const targetCard = document.querySelector(`.rabbit-prompt-float[data-prompt-id="${nextPrompt.id}"]`);
+        if (targetCard instanceof HTMLElement) {
+          targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          targetCard.style.outline = '2px solid var(--rabbit-panel-outline)';
+          setTimeout(() => {
+            targetCard.style.outline = '';
+          }, 800);
+        } else {
+          openPromptReviewModal(nextPrompt);
+        }
       }
     });
   }
@@ -1327,9 +1363,7 @@
         return;
       }
       if (action === 'composer-explorer-enhance-draft') {
-        const draft = input instanceof HTMLTextAreaElement || input?.getAttribute?.('contenteditable') === 'true'
-          ? (input.value || input.textContent || '')
-          : '';
+        const draft = getComposerDraftText(input);
         const enhancedInstruction = buildPromptEnhanceInstruction(draft);
         if (!enhancedInstruction) return;
         insertPromptIntoComposer(enhancedInstruction, input);
@@ -1395,7 +1429,7 @@
     renderResults();
   }
 
-  function buildComposerPromptMenu(menu, mode, input) {
+  function buildComposerPromptMenu(menu, mode, input, nativePlusBtn = null) {
     if (!(menu instanceof HTMLElement)) return;
     menu.innerHTML = '';
 
@@ -1418,6 +1452,9 @@
       ? 'composer-menu-all'
       : 'composer-menu-favorites';
     menu.appendChild(makeActionButton(toggleBtnLabel, toggleBtnAction));
+    if (nativePlusBtn instanceof HTMLElement) {
+      menu.appendChild(makeActionButton('Open File/Tool Menu (+)', 'composer-menu-native-plus'));
+    }
 
     const source = normalizedMode === 'favorites' ? getFavoritePrompts() : prompts;
     const listWrap = document.createElement('div');
@@ -1446,12 +1483,12 @@
       btn.addEventListener('click', () => {
         const action = btn.dataset.action;
         if (action === 'composer-menu-favorites') {
-          buildComposerPromptMenu(menu, 'favorites', input);
+          buildComposerPromptMenu(menu, 'favorites', input, nativePlusBtn);
           menu.classList.add('open');
           return;
         }
         if (action === 'composer-menu-all') {
-          buildComposerPromptMenu(menu, 'all', input);
+          buildComposerPromptMenu(menu, 'all', input, nativePlusBtn);
           menu.classList.add('open');
           return;
         }
@@ -1460,10 +1497,19 @@
           openPromptEditorPanel();
           return;
         }
+        if (action === 'composer-menu-native-plus') {
+          if (nativePlusBtn instanceof HTMLElement) {
+            nativePlusBtn.dataset.rabbitBypassPromptMenu = '1';
+            setTimeout(() => {
+              delete nativePlusBtn.dataset.rabbitBypassPromptMenu;
+            }, 220);
+            nativePlusBtn.click();
+          }
+          closeComposerPromptMenus();
+          return;
+        }
         if (action === 'composer-menu-enhance') {
-          const draft = input instanceof HTMLTextAreaElement || input?.getAttribute?.('contenteditable') === 'true'
-            ? (input.value || input.textContent || '')
-            : '';
+          const draft = getComposerDraftText(input);
           const enhancedInstruction = buildPromptEnhanceInstruction(draft);
           if (!enhancedInstruction) {
             closeComposerPromptMenus();
@@ -1498,6 +1544,8 @@
               const added = importPromptsFromPayload(payload, file.name || 'Imported Prompt');
               if (added) showNotification(`Imported ${added} prompt(s).`);
               buildComposerPromptMenu(menu, normalizedMode, input);
+              importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+              buildComposerPromptMenu(menu, normalizedMode, input, nativePlusBtn);
               menu.classList.add('open');
             };
             reader.readAsText(file);
@@ -1578,7 +1626,7 @@
     }
 
     if (input instanceof HTMLElement && input.parentElement instanceof HTMLElement) {
-      return { container: input.parentElement, anchor: input.nextElementSibling };
+      return { container: input.parentElement, anchor: input.nextElementSibling || shell.firstElementChild };
     }
 
     return { container: shell, anchor: shell.firstElementChild };
@@ -1632,67 +1680,70 @@
     shell.prepend(dock);
   }
 
+  let lastClickedPromptBtn = null;
+
   function ensureComposerPromptDock(shell, input) {
     if (!(shell instanceof HTMLElement)) return;
     if (!(input instanceof HTMLElement)) return;
 
-    let dock = shell.querySelector('.rabbit-composer-prompt-dock');
-    if (!(dock instanceof HTMLElement)) {
-      dock = document.createElement('div');
-      dock.className = 'rabbit-composer-prompt-dock';
-      dock.dataset.testid = 'composer-button-prompts';
+    const anchorData = findComposerPromptAnchor(shell, input);
+    const nativePlusBtn = anchorData?.anchor instanceof HTMLButtonElement ? anchorData.anchor : null;
+    if (!(nativePlusBtn instanceof HTMLButtonElement)) return;
+
+    const originalLabel = nativePlusBtn.getAttribute('aria-label') || nativePlusBtn.getAttribute('title') || '';
+    nativePlusBtn.classList.add('rabbit-composer-code-btn', 'rabbit-composer-merged-plus-btn');
+    nativePlusBtn.dataset.testid = 'composer-button-prompts';
+    nativePlusBtn.setAttribute('aria-label', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
+    nativePlusBtn.setAttribute('title', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
+    nativePlusBtn.setAttribute('aria-haspopup', 'menu');
+    nativePlusBtn.setAttribute('aria-expanded', 'false');
+    if (nativePlusBtn.dataset.rabbitPromptIconApplied !== '1') {
+      nativePlusBtn.dataset.rabbitPromptIconApplied = '1';
+      nativePlusBtn.innerHTML = `<span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>`;
+    }
+
+    let menu = document.getElementById(`rabbit-composer-prompt-menu-${nativePlusBtn.dataset.rabbitPromptMenuId || ''}`);
+    if (!(menu instanceof HTMLElement)) {
       const menuId = `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
-      dock.innerHTML = `
-        <button type="button" class="rabbit-composer-code-btn" data-testid="composer-button-prompts" aria-label="Prompts" title="Prompts" aria-haspopup="menu" aria-expanded="false" aria-controls="${menuId}">
-          <span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>
-        </button>
-        <div id="${menuId}" class="rabbit-composer-prompt-menu" role="menu" aria-hidden="true"></div>
-      `;
+      nativePlusBtn.dataset.rabbitPromptMenuId = menuId.slice('rabbit-composer-prompt-menu-'.length);
+      menu = document.createElement('div');
+      menu.id = menuId;
+      menu.className = 'rabbit-composer-prompt-menu';
+      menu.setAttribute('role', 'menu');
+      menu.setAttribute('aria-hidden', 'true');
+      menu.dataset.triggerId = menuId;
+      document.body.appendChild(menu);
+      nativePlusBtn.setAttribute('aria-controls', menuId);
     }
 
-    const anchorData = findComposerPromptAnchor(shell, null);
-    if (anchorData?.container instanceof HTMLElement) {
-      if (anchorData.anchor instanceof Node) {
-        anchorData.container.insertBefore(dock, anchorData.anchor);
-      } else {
-        anchorData.container.appendChild(dock);
-      }
-    } else {
-      placePromptDockNearAttach(shell, dock);
-    }
+    if (nativePlusBtn.dataset.bound === '1') return;
+    nativePlusBtn.dataset.bound = '1';
 
-    const btn = dock.querySelector('.rabbit-composer-code-btn');
-    const menu = dock.querySelector('.rabbit-composer-prompt-menu');
-    if (!(btn instanceof HTMLButtonElement) || !(menu instanceof HTMLElement)) return;
-
-    if (btn.dataset.bound === '1') return;
-    btn.dataset.bound = '1';
-
-    let suppressNextClick = false;
     const onPromptButtonActivate = (event) => {
       event.preventDefault();
       event.stopPropagation();
+      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
+      lastClickedPromptBtn = nativePlusBtn;
       const opening = !menu.classList.contains('open');
       closeComposerPromptMenus();
       if (!opening) return;
-      positionComposerPromptMenu(menu, btn);
-      buildComposerPromptMenu(menu, 'root', input);
+      positionComposerPromptMenu(menu, nativePlusBtn);
+      buildComposerPromptMenu(menu, 'root', input, nativePlusBtn);
       menu.classList.add('open');
       menu.setAttribute('aria-hidden', 'false');
-      btn.setAttribute('aria-expanded', 'true');
+      nativePlusBtn.setAttribute('aria-expanded', 'true');
     };
 
-    btn.addEventListener('click', (event) => {
-      if (suppressNextClick) {
-        suppressNextClick = false;
-        return;
-      }
+    nativePlusBtn.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
       onPromptButtonActivate(event);
     });
-    btn.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      suppressNextClick = true;
-      onPromptButtonActivate(event);
+    nativePlusBtn.addEventListener('click', (event) => {
+      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
+      event.preventDefault();
+      event.stopPropagation();
     });
   }
 
@@ -4151,6 +4202,11 @@
         <div class="rabbit-page" data-page="prompts">
           <div class="rabbit-group">
             <div class="rabbit-group-title">Saved Prompts</div>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="prompt-open-explorer">Search / Expand Prompt List</button>
+              <button type="button" data-action="prompt-open-favorites">View Favorite Prompts</button>
+              <button type="button" data-action="prompt-enhance-current">Enhance Current Prompt with AI</button>
+            </div>
             <div class="rabbit-prompt-list" data-role="prompt-list"></div>
           </div>
 
@@ -4201,6 +4257,8 @@
               <input type="text" data-role="prompt-url" placeholder="https://example.com/prompts.json">
             </label>
             <div class="rabbit-actions-row">
+              <button type="button" data-action="prompt-export-json">Export Prompts (JSON)</button>
+              <button type="button" data-action="prompt-import-file">Import Prompts (File)</button>
               <button type="button" data-action="prompt-fetch">Fetch URL</button>
               <button type="button" data-action="prompt-export">Export JSON</button>
             </div>
@@ -4800,6 +4858,41 @@
           if (status) status.textContent = `Enhancement instruction inserted for "${promptItem.title}".`;
         } else if (status) {
           status.textContent = 'Could not find an active composer.';
+        }
+      }
+
+      if (action === 'prompt-open-explorer' || action === 'prompt-open-favorites') {
+        const preferredInput = getPrimaryComposerInput();
+        const mode = action === 'prompt-open-favorites' ? 'favorites' : 'all';
+        openComposerPromptExplorer(preferredInput, mode);
+      }
+
+      if (action === 'prompt-enhance-current') {
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        const input = getPrimaryComposerInput();
+        const draft = getComposerDraftText(input);
+        const enhancedInstruction = buildPromptEnhanceInstruction(draft);
+        if (!enhancedInstruction) {
+          if (status) status.textContent = 'Type a prompt in the composer first.';
+          return;
+        }
+        if (insertPromptIntoComposer(enhancedInstruction, input)) {
+          if (status) status.textContent = 'Enhancement instruction inserted into the composer.';
+        } else if (status) {
+          status.textContent = 'Could not find an active composer.';
+        }
+      }
+
+      if (action === 'prompt-export-json') {
+        const status = panel.querySelector('[data-role="prompt-status"]');
+        exportPromptsAsJson();
+        if (status) status.textContent = 'Exported prompts as JSON.';
+      }
+
+      if (action === 'prompt-import-file') {
+        const fileInput = panel.querySelector('input[type="file"][data-action="prompt-file"]');
+        if (fileInput instanceof HTMLInputElement) {
+          fileInput.click();
         }
       }
 
@@ -5734,6 +5827,8 @@
     }
     applyStyles();
     makePanel();
+    bindFloatingPromptEvents();
+    renderFloatingPinnedPrompts();
     refreshAllStyling();
     observeDom();
     addMenuCommands();
