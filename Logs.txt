@@ -1,2 +1,9 @@
 Enter details of what changes have been made, bugs fixed, and why new code was added or removed in this file.
 2026-04-23: Fixed minimized launcher button visibility/accessibility. Root issue: `launcherHiddenUntilHover` set launcher opacity to 0 without touch-device fallback, making the button effectively undiscoverable on non-hover devices. Added pointer-events gating and a coarse-pointer media-query override so the launcher remains visible/clickable on touch devices.
+
+2026-04-23: Fixed prompts button not opening when clicked. Issues fixed:
+1. findComposerPromptAnchor was passing `null` instead of `input`, causing anchor detection to fail
+2. Removed `suppressNextClick` logic that could interfere with click handling
+3. Added fallback when `input.nextElementSibling` is null (use shell.firstElementChild)
+4. Changed click/pointerdown to use capture phase to ensure handlers fire before document-level handlers
+5. Made pointerdown handler prevent default to avoid losing focus
