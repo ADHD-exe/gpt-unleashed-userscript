@@ -860,7 +860,7 @@
       const card = document.createElement('div');
       card.className = 'rabbit-prompt-float';
       card.dataset.promptId = prompt.id;
-      card.style.top = `${80 + (index * 24)}px`;
+      card.style.top = `${80 + (index * 170)}px`;
       card.style.right = '16px';
       card.innerHTML = `
         <div class="rabbit-prompt-float-head">
@@ -897,7 +897,10 @@
       <div class="rabbit-prompt-review-card">
         <div class="rabbit-prompt-review-head">
           <strong>${escapeHtml(promptItem.title)}</strong>
-          <button type="button" data-action="prompt-review-close">Close</button>
+          <div style="display:flex;gap:6px;">
+            <button type="button" data-action="prompt-review-insert" data-prompt-id="${escapeHtml(promptItem.id)}">Insert</button>
+            <button type="button" data-action="prompt-review-close">Close</button>
+          </div>
         </div>
         <div class="rabbit-prompt-review-meta">
           <span>Type: ${escapeHtml(promptItem.type || 'user')}</span>
@@ -919,11 +922,19 @@
         target.remove();
         return;
       }
-      const btn = target.closest('button[data-action^="float-"], button[data-action="prompt-review-close"]');
+      const btn = target.closest('button[data-action^="float-"], button[data-action="prompt-review-close"], button[data-action="prompt-review-insert"]');
       if (!(btn instanceof HTMLButtonElement)) return;
       const action = btn.dataset.action || '';
       if (action === 'prompt-review-close') {
         btn.closest('.rabbit-prompt-review-overlay')?.remove();
+        return;
+      }
+      if (action === 'prompt-review-insert') {
+        const pid = btn.dataset.promptId || '';
+        const item = prompts.find((prompt) => prompt.id === pid);
+        if (item && insertPromptIntoComposer(item.text)) {
+          btn.closest('.rabbit-prompt-review-overlay')?.remove();
+        }
         return;
       }
       const promptId = btn.dataset.promptId || '';
@@ -952,7 +963,17 @@
           ? (currentIndex + 1) % pinned.length
           : (currentIndex - 1 + pinned.length) % pinned.length;
         const nextPrompt = pinned[nextIndex];
-        if (nextPrompt) openPromptReviewModal(nextPrompt);
+        if (!nextPrompt) return;
+        const targetCard = document.querySelector(`.rabbit-prompt-float[data-prompt-id="${nextPrompt.id}"]`);
+        if (targetCard instanceof HTMLElement) {
+          targetCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          targetCard.style.outline = '2px solid var(--rabbit-panel-outline)';
+          setTimeout(() => {
+            targetCard.style.outline = '';
+          }, 800);
+        } else {
+          openPromptReviewModal(nextPrompt);
+        }
       }
     });
   }
@@ -5446,6 +5467,8 @@ Open the GitHub Raw install page now?`);
     }
     applyStyles();
     makePanel();
+    bindFloatingPromptEvents();
+    renderFloatingPinnedPrompts();
     refreshAllStyling();
     observeDom();
     addMenuCommands();
