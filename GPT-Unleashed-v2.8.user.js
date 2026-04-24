@@ -1259,10 +1259,15 @@
   function findComposerAttachButton(shell) {
     if (!(shell instanceof HTMLElement)) return null;
     const candidates = [...shell.querySelectorAll('button, [role="button"]')].filter((node) => node instanceof HTMLElement);
+    const isVisibleCandidate = (el) => {
+      if (!(el instanceof HTMLElement)) return false;
+      const elRect = el.getBoundingClientRect();
+      return !(elRect.width === 0 && elRect.height === 0);
+    };
 
     for (const el of candidates) {
       if (!(el instanceof HTMLElement)) continue;
-      if (el.offsetParent === null) continue;
+      if (!isVisibleCandidate(el)) continue;
       const text = (el.textContent || '').trim();
       const aria = ((el.getAttribute('aria-label') || '') + ' ' + (el.getAttribute('title') || '')).toLowerCase();
       const dataTestId = (el.getAttribute('data-testid') || '').toLowerCase();
@@ -1278,7 +1283,7 @@
     }
 
     const leftMostButton = candidates
-      .filter((el) => el instanceof HTMLElement && el.offsetParent !== null)
+      .filter((el) => isVisibleCandidate(el))
       .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left)[0];
     if (leftMostButton instanceof HTMLElement) return leftMostButton;
 
@@ -1408,31 +1413,17 @@
     if (btn.dataset.bound === '1') return;
     btn.dataset.bound = '1';
 
-    let suppressNextClick = false;
-    const onPromptButtonActivate = (event) => {
+    btn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       const opening = !menu.classList.contains('open');
       closeComposerPromptMenus();
       if (!opening) return;
       positionComposerPromptMenu(menu, btn);
-      buildComposerPromptMenu(menu, 'root', input);
+      buildComposerPromptMenu(menu, 'all', input);
       menu.classList.add('open');
       menu.setAttribute('aria-hidden', 'false');
       btn.setAttribute('aria-expanded', 'true');
-    };
-
-    btn.addEventListener('click', (event) => {
-      if (suppressNextClick) {
-        suppressNextClick = false;
-        return;
-      }
-      onPromptButtonActivate(event);
-    });
-    btn.addEventListener('pointerdown', (event) => {
-      if (event.pointerType === 'mouse' && event.button !== 0) return;
-      suppressNextClick = true;
-      onPromptButtonActivate(event);
     });
   }
 
@@ -5395,7 +5386,9 @@ Open the GitHub Raw install page now?`);
 
     document.addEventListener('click', (event) => {
       const target = event.target;
-      if (target instanceof HTMLElement && target.closest('.rabbit-composer-prompt-dock')) return;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest('.rabbit-composer-prompt-dock')) return;
+      if (target.closest('.rabbit-composer-prompt-menu')) return;
       closeComposerPromptMenus();
     });
 
