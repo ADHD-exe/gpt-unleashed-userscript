@@ -20,6 +20,7 @@
 
   const STORAGE_KEY = 'rabbit_chatgpt_theme_settings_v28';
   const PROMPTS_KEY = 'rabbit_chatgpt_saved_prompts_v1';
+  const GLOBAL_FILES_KEY = 'rabbit_global_files';
   const SAVED_THEMES_KEY = 'rabbit_chatgpt_saved_themes_v1';
   const PENDING_PROMPT_KEY = 'rabbit_chatgpt_pending_prompt_v1';
   const PENDING_PROMPT_MAX_AGE_MS = 10 * 60 * 1000;
@@ -178,6 +179,7 @@
   let refreshTimer = null;
   let mutationObserver = null;
   let observerPaused = false;
+  let notificationTimer = null;
   function clampNumber(value, min, max, fallback) {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
@@ -528,6 +530,198 @@
       .slice(0, 24);
   }
 
+  function showNotification(message) {
+    const text = String(message || '').trim();
+    if (!text) return;
+    let toast = document.getElementById('rabbit-global-notification');
+    if (!(toast instanceof HTMLElement)) {
+      toast = document.createElement('div');
+      toast.id = 'rabbit-global-notification';
+      toast.style.cssText = `
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        z-index: 2147483646;
+        max-width: min(420px, calc(100vw - 24px));
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--rabbit-panel-bubble, #002b1b);
+        color: var(--rabbit-panel-font, #00ff75);
+        border: 1px solid var(--rabbit-panel-outline, #00fddf);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        font: 12px/1.4 system-ui, sans-serif;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 160ms ease, transform 160ms ease;
+      `;
+      document.body.appendChild(toast);
+    }
+    toast.textContent = text;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    if (notificationTimer) clearTimeout(notificationTimer);
+    notificationTimer = setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(6px)';
+    }, 1700);
+  }
+
+  function createDialogo({ message, type = 'alert', title = 'Notice', actions = null } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 2147483647;
+        background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px;
+      `;
+
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background: var(--rabbit-panel-bg, #000900);
+        color: var(--rabbit-panel-font, #00ff75);
+        border: 1px solid var(--rabbit-panel-outline, #00fddf);
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 420px;
+        width: 100%;
+        font: 13px/1.4 system-ui, sans-serif;
+        box-shadow: 0 16px 44px rgba(0,0,0,0.5);
+      `;
+      card.onclick = (event) => event.stopPropagation();
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-weight: 700; font-size: 14px; margin-bottom: 10px;';
+      titleEl.textContent = title;
+
+      const msgEl = document.createElement('p');
+      msgEl.style.cssText = 'margin: 0 0 16px 0; opacity: 0.88; font-size: 12px; line-height: 1.5;';
+      msgEl.textContent = String(message || '');
+
+      const footer = document.createElement('div');
+      footer.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end;';
+
+      const close = (value) => {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 180);
+        resolve(value);
+      };
+
+      overlay.addEventListener('click', () => close(false));
+
+      const buttons = actions || (type === 'confirm'
+        ? [
+            { label: 'Cancel', style: 'secondary', value: false },
+            { label: 'Confirm', style: 'primary', value: true }
+          ]
+        : [{ label: 'OK', style: 'primary', value: true }]);
+
+      buttons.forEach((btn) => {
+        const el = document.createElement('button');
+        el.type = 'button';
+        el.textContent = btn.label;
+        el.style.cssText = `
+          appearance: none;
+          border: 1px solid var(--rabbit-panel-outline, #00fddf);
+          background: ${btn.style === 'primary'
+            ? 'var(--rabbit-panel-btn, #0a6600)'
+            : btn.style === 'danger'
+            ? '#6b0000'
+            : 'transparent'};
+          color: var(--rabbit-panel-font, #00ff75);
+          border-radius: 8px;
+          padding: 6px 14px;
+          cursor: pointer;
+          font-size: 12px;
+          min-height: 28px;
+        `;
+        el.onclick = () => close(btn.value !== undefined ? btn.value : true);
+        footer.appendChild(el);
+      });
+
+      card.appendChild(titleEl);
+      card.appendChild(msgEl);
+      card.appendChild(footer);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+
+      overlay.style.opacity = '0';
+      overlay.style.transition = 'opacity 180ms ease';
+      requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+      setTimeout(() => footer.lastChild?.focus(), 50);
+    });
+  }
+
+  function createCustomTooltip(el, text, position = 'top') {
+    if (!el || !text || el.dataset.rabbitTooltipBound === '1') return;
+    el.dataset.rabbitTooltipBound = '1';
+
+    const show = () => {
+      el._tooltipEl?.remove();
+      const tip = document.createElement('div');
+      tip.style.cssText = `
+        position: fixed;
+        z-index: 2147483646;
+        background: var(--rabbit-panel-bubble, #002b1b);
+        color: var(--rabbit-panel-font, #00ff75);
+        border: 1px solid var(--rabbit-panel-outline, #00fddf);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 11px;
+        line-height: 1.3;
+        max-width: 220px;
+        pointer-events: none;
+        white-space: pre-wrap;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        opacity: 0;
+        transition: opacity 120ms ease;
+      `;
+      tip.textContent = typeof text === 'object' ? (text.text || '') : text;
+      document.body.appendChild(tip);
+      el._tooltipEl = tip;
+
+      const margin = 6;
+      const rect = el.getBoundingClientRect();
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      let top;
+      let left;
+      if (position === 'top') {
+        top = rect.top - th - margin;
+        left = rect.left + rect.width / 2 - tw / 2;
+      } else if (position === 'bottom') {
+        top = rect.bottom + margin;
+        left = rect.left + rect.width / 2 - tw / 2;
+      } else if (position === 'left') {
+        top = rect.top + rect.height / 2 - th / 2;
+        left = rect.left - tw - margin;
+      } else {
+        top = rect.top + rect.height / 2 - th / 2;
+        left = rect.right + margin;
+      }
+
+      left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+      top = Math.max(8, Math.min(top, window.innerHeight - th - 8));
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+      requestAnimationFrame(() => { tip.style.opacity = '1'; });
+    };
+
+    const hide = () => {
+      if (el._tooltipEl) {
+        el._tooltipEl.remove();
+        el._tooltipEl = null;
+      }
+    };
+
+    el.addEventListener('mouseenter', show);
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('mousedown', hide);
+    el.addEventListener('focus', show);
+    el.addEventListener('blur', hide);
+  }
+
   function getAllPromptTags() {
     const tags = new Set();
     prompts.forEach((item) => {
@@ -811,6 +1005,68 @@
       item.appendChild(actions);
       list.appendChild(item);
       });
+    });
+
+    panel.querySelectorAll('.rabbit-prompt-actions button').forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = btn.dataset.action;
+      const tips = {
+        'prompt-insert': 'Insert into composer',
+        'prompt-new-chat': 'Start new chat with this prompt',
+        'prompt-favorite-toggle': 'Toggle favorite',
+        'prompt-pin-toggle': 'Pin to floating card',
+        'prompt-review': 'Review full prompt',
+        'prompt-expand-toggle': 'Expand/collapse',
+        'prompt-enhance': 'Enhance with AI'
+      };
+      if (tips[action]) createCustomTooltip(btn, tips[action], 'top');
+    });
+  }
+
+  function loadGlobalFiles() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(GLOBAL_FILES_KEY) || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveGlobalFiles(files) {
+    localStorage.setItem(GLOBAL_FILES_KEY, JSON.stringify(Array.isArray(files) ? files : []));
+  }
+
+  function renderGlobalFilesList(panel) {
+    const list = panel.querySelector('#rabbit-global-files-list');
+    if (!(list instanceof HTMLElement)) return;
+    const stored = loadGlobalFiles();
+    if (!stored.length) {
+      list.textContent = 'No files attached.';
+      return;
+    }
+    list.innerHTML = '';
+    stored.forEach((file) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:6px;margin:3px 0;font-size:11px;';
+      row.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escapeHtml(file.name || 'file')}</span>`;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '✕';
+      del.style.cssText = 'flex-shrink:0;font-size:10px;padding:2px 5px;';
+      del.onclick = async () => {
+        const ok = await createDialogo({
+          message: `Remove "${file.name || 'this file'}"?`,
+          type: 'confirm',
+          title: 'Remove File'
+        });
+        if (!ok) return;
+        const updated = loadGlobalFiles().filter((item) => item.id !== file.id);
+        saveGlobalFiles(updated);
+        renderGlobalFilesList(panel);
+        showNotification(`Removed "${file.name || 'file'}".`);
+      };
+      row.appendChild(del);
+      list.appendChild(row);
     });
   }
 
@@ -1098,6 +1354,7 @@
       }
       if (action === 'composer-explorer-export') {
         exportPromptsAsJson();
+        showNotification('Prompts exported successfully.');
         return;
       }
       if (action === 'composer-explorer-create') {
@@ -1125,7 +1382,8 @@
             const result = typeof reader.result === 'string' ? reader.result : '';
             let payload = result;
             try { payload = JSON.parse(result); } catch { /* plain text */ }
-            importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+            const added = importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+            if (added) showNotification(`Imported ${added} prompt(s).`);
             renderResults();
           };
           reader.readAsText(file);
@@ -1267,6 +1525,7 @@
         }
         if (action === 'composer-menu-export') {
           exportPromptsAsJson();
+          showNotification('Prompts exported successfully.');
           closeComposerPromptMenus();
           return;
         }
@@ -1282,6 +1541,9 @@
               const result = typeof reader.result === 'string' ? reader.result : '';
               let payload = result;
               try { payload = JSON.parse(result); } catch { /* plain text */ }
+              const added = importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+              if (added) showNotification(`Imported ${added} prompt(s).`);
+              buildComposerPromptMenu(menu, normalizedMode, input);
               importPromptsFromPayload(payload, file.name || 'Imported Prompt');
               buildComposerPromptMenu(menu, normalizedMode, input, nativePlusBtn);
               menu.classList.add('open');
@@ -1492,7 +1754,10 @@
 
     if (!rawUrl) {
       const message = 'Set a GitHub Raw userscript URL in Settings > Updates first.';
-      if (!silent) alert(message);
+      if (!silent) {
+        showNotification(message);
+        await createDialogo({ message, title: 'Update Check' });
+      }
       return { ok: false, message };
     }
 
@@ -1518,9 +1783,11 @@
       if (comparison > 0) {
         const message = `Update available: ${localVersion} → ${remoteVersion}`;
         if (!silent) {
-          const wantsInstall = openInstall || confirm(`${message}
-
-Open the GitHub Raw install page now?`);
+          const wantsInstall = openInstall || await createDialogo({
+            message: `${message}\n\nOpen the GitHub Raw install page now?`,
+            type: 'confirm',
+            title: 'Update Available'
+          });
           if (wantsInstall) window.open(rawUrl, '_blank', 'noopener,noreferrer');
         }
         return { ok: true, hasUpdate: true, message, rawUrl, remoteVersion, localVersion };
@@ -1529,11 +1796,17 @@ Open the GitHub Raw install page now?`);
       const message = comparison === 0
         ? `You are up to date (${localVersion}).`
         : `Installed version (${localVersion}) is newer than remote (${remoteVersion || 'unknown'}).`;
-      if (!silent) alert(message);
+      if (!silent) {
+        showNotification(message);
+        await createDialogo({ message, title: 'Update Check' });
+      }
       return { ok: true, hasUpdate: false, message, rawUrl, remoteVersion, localVersion };
     } catch (error) {
       const message = `Update check failed: ${error instanceof Error ? error.message : String(error)}`;
-      if (!silent) alert(message);
+      if (!silent) {
+        showNotification(message);
+        await createDialogo({ message, title: 'Update Check' });
+      }
       return { ok: false, message };
     }
   }
@@ -1917,8 +2190,14 @@ Open the GitHub Raw install page now?`);
       deleteBtn.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        if (!confirm(`Delete "${item.title}"?`)) return;
+        const ok = await createDialogo({
+          message: `Delete "${item.title}"? This cannot be undone.`,
+          type: 'confirm',
+          title: 'Delete Chat'
+        });
+        if (!ok) return;
         await deleteChatFromSidebarItem(item);
+        showNotification(`Deleted "${item.title}".`);
         scheduleRefresh(120);
       });
       menuButton.parentElement.insertBefore(deleteBtn, menuButton);
@@ -3418,6 +3697,7 @@ Open the GitHub Raw install page now?`);
 
     if (nextPage === 'prompts') {
       renderPromptsList(panel);
+      renderGlobalFilesList(panel);
     }
 
     updatePanelHeader(panel);
@@ -3564,7 +3844,17 @@ Open the GitHub Raw install page now?`);
     panel.querySelectorAll('[data-page="home"] button[data-action]').forEach((btn) => {
       if (!(btn instanceof HTMLButtonElement)) return;
       const tip = homeTips[btn.dataset.action || ''];
-      if (tip) btn.title = tip;
+      if (tip) {
+        btn.title = tip;
+        createCustomTooltip(btn, tip, 'left');
+      }
+    });
+
+    panel.querySelectorAll('.rabbit-panel-actions button').forEach((btn) => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const action = btn.dataset.action;
+      if (action === 'toggle') createCustomTooltip(btn, 'Minimize panel', 'bottom');
+      if (action === 'nav-home') createCustomTooltip(btn, 'Home', 'bottom');
     });
 
     panel.querySelectorAll('[data-page="layout"] [data-key]').forEach((control) => {
@@ -3947,6 +4237,16 @@ Open the GitHub Raw install page now?`);
           </div>
 
           <div class="rabbit-group">
+            <div class="rabbit-group-title">Attached Files</div>
+            <div id="rabbit-global-files-list" class="rabbit-note">No files attached.</div>
+            <div class="rabbit-actions-row">
+              <button type="button" data-action="file-add">Add File</button>
+              <button type="button" data-action="file-clear-all">Clear All</button>
+            </div>
+            <input type="file" id="rabbit-file-input" style="display:none" multiple>
+          </div>
+
+          <div class="rabbit-group">
             <div class="rabbit-group-title">Import Prompts</div>
             <label class="rabbit-row rabbit-font-row">
               <span>From file</span>
@@ -3960,6 +4260,7 @@ Open the GitHub Raw install page now?`);
               <button type="button" data-action="prompt-export-json">Export Prompts (JSON)</button>
               <button type="button" data-action="prompt-import-file">Import Prompts (File)</button>
               <button type="button" data-action="prompt-fetch">Fetch URL</button>
+              <button type="button" data-action="prompt-export">Export JSON</button>
             </div>
             <div class="rabbit-note">Supports JSON arrays of {title,text} or plain text.</div>
             <div class="rabbit-note" data-role="prompt-status"></div>
@@ -4119,6 +4420,7 @@ Open the GitHub Raw install page now?`);
     updateLayoutControls(panel);
     updateUiThemeControls(panel);
     renderThemeSelect(panel);
+    renderGlobalFilesList(panel);
 
     panel.addEventListener('input', (event) => {
       const t = event.target;
@@ -4238,7 +4540,7 @@ Open the GitHub Raw install page now?`);
 
     let suppressLauncherToggleClick = false;
 
-    panel.addEventListener('click', (event) => {
+    panel.addEventListener('click', async (event) => {
       const btn = event.target.closest('button');
       if (!btn) return;
 
@@ -4364,7 +4666,8 @@ Open the GitHub Raw install page now?`);
           makePanel();
           scheduleRefresh(80);
         } catch {
-          alert('Invalid theme JSON');
+          showNotification('Invalid theme JSON.');
+          await createDialogo({ message: 'Invalid theme JSON.', title: 'Import Theme' });
         }
       }
 
@@ -4399,7 +4702,8 @@ Open the GitHub Raw install page now?`);
           makePanel();
           scheduleRefresh(80);
         } catch {
-          alert('Invalid JSON');
+          showNotification('Invalid JSON.');
+          await createDialogo({ message: 'Invalid JSON.', title: 'Import Settings' });
         }
       }
 
@@ -4441,6 +4745,7 @@ Open the GitHub Raw install page now?`);
         if (typeInput instanceof HTMLSelectElement) typeInput.value = 'user';
         if (tagsInput) tagsInput.value = '';
         if (status) status.textContent = `Saved "${normalized.title}".`;
+        showNotification(`Saved "${normalized.title}".`);
         refreshPromptViews();
       }
 
@@ -4613,10 +4918,33 @@ Open the GitHub Raw install page now?`);
           const added = importPromptsFromPayload(payload, 'URL Prompt');
           renderPromptsList(panel);
           renderFloatingPinnedPrompts();
+          if (added) showNotification(`Imported ${added} prompt(s).`);
           if (status) status.textContent = added ? `Imported ${added} prompt(s).` : 'No prompts found.';
         }).catch((err) => {
           if (status) status.textContent = `Fetch failed: ${err.message}`;
         });
+      }
+
+      if (action === 'prompt-export') {
+        exportPromptsAsJson();
+        showNotification('Prompts exported successfully.');
+      }
+
+      if (action === 'file-add') {
+        const input = panel.querySelector('#rabbit-file-input');
+        if (input instanceof HTMLInputElement) input.click();
+      }
+
+      if (action === 'file-clear-all') {
+        const ok = await createDialogo({
+          message: 'Remove all attached files?',
+          type: 'confirm',
+          title: 'Clear Files'
+        });
+        if (!ok) return;
+        localStorage.removeItem(GLOBAL_FILES_KEY);
+        renderGlobalFilesList(panel);
+        showNotification('All files cleared.');
       }
 
       if (action === 'export-chat') {
@@ -4679,11 +5007,16 @@ Open the GitHub Raw install page now?`);
           .filter((chat) => !!chat);
 
         if (!selectedChats.length) {
-          alert('Select at least one chat to delete.');
+          showNotification('Select at least one chat to delete.');
           return;
         }
 
-        if (!confirm(`Delete ${selectedChats.length} selected chat(s)? This cannot be undone.`)) return;
+        const ok = await createDialogo({
+          message: `Delete ${selectedChats.length} selected chat(s)? This cannot be undone.`,
+          type: 'confirm',
+          title: 'Delete Chats'
+        });
+        if (!ok) return;
         (async () => {
           let deletedCount = 0;
           for (const chat of selectedChats) {
@@ -4691,7 +5024,7 @@ Open the GitHub Raw install page now?`);
             if (ok) deletedCount += 1;
             await sleep(180);
           }
-          alert(`Deleted ${deletedCount} chat(s).`);
+          showNotification(`Deleted ${deletedCount} chat(s).`);
           setDeleteChatsModalOpen(panel, false);
           scheduleRefresh(140);
         })();
@@ -4713,7 +5046,7 @@ Open the GitHub Raw install page now?`);
           .filter((chat) => !!chat);
 
         if (!selectedChats.length) {
-          alert('Select at least one chat to export.');
+          showNotification('Select at least one chat to export.');
           return;
         }
 
@@ -4724,7 +5057,7 @@ Open the GitHub Raw install page now?`);
             if (ok) exportedCount += 1;
             await sleep(120);
           }
-          alert(`Exported ${exportedCount} of ${selectedChats.length} chat(s).`);
+          showNotification(`Exported ${exportedCount} of ${selectedChats.length} chat(s).`);
           setExportChatsModalOpen(panel, false);
         })();
       }
@@ -4751,6 +5084,7 @@ Open the GitHub Raw install page now?`);
         const added = importPromptsFromPayload(payload, file.name || 'File Prompt');
         renderPromptsList(panel);
         renderFloatingPinnedPrompts();
+        if (added) showNotification(`Imported ${added} prompt(s).`);
         if (status) status.textContent = added ? `Imported ${added} prompt(s).` : 'No prompts found.';
         t.value = '';
       };
@@ -4759,6 +5093,32 @@ Open the GitHub Raw install page now?`);
         t.value = '';
       };
       reader.readAsText(file);
+    });
+
+    panel.querySelector('#rabbit-file-input')?.addEventListener('change', async (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLInputElement)) return;
+      const files = [...(target.files || [])];
+      if (!files.length) return;
+      const stored = loadGlobalFiles();
+      for (const file of files) {
+        const data = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result || '');
+          reader.readAsDataURL(file);
+        });
+        stored.push({
+          id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data
+        });
+      }
+      saveGlobalFiles(stored);
+      renderGlobalFilesList(panel);
+      showNotification(`Added ${files.length} file(s).`);
+      target.value = '';
     });
 
     const deleteModal = panel.querySelector('[data-role="delete-chats-modal"]');
