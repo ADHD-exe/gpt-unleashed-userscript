@@ -1577,9 +1577,6 @@
               try { payload = JSON.parse(result); } catch { /* plain text */ }
               const added = importPromptsFromPayload(payload, file.name || 'Imported Prompt');
               showNotification(`Imported ${added} prompt(s).`);
-              if (added) showNotification(`Imported ${added} prompt(s).`);
-              buildComposerPromptMenu(menu, normalizedMode, input);
-              importPromptsFromPayload(payload, file.name || 'Imported Prompt');
               buildComposerPromptMenu(menu, normalizedMode, input, nativePlusBtn);
               menu.classList.add('open');
             };
@@ -1729,9 +1726,76 @@
 
   let lastClickedPromptBtn = null;
 
+  function bindComposerPromptMenuToPlus(shell, input) {
+    const anchorData = findComposerPromptAnchor(shell, input);
+    const nativePlusBtn = anchorData?.anchor instanceof HTMLButtonElement ? anchorData.anchor : null;
+    if (!(nativePlusBtn instanceof HTMLButtonElement)) return false;
+
+    const originalLabel = nativePlusBtn.getAttribute('aria-label') || nativePlusBtn.getAttribute('title') || '';
+    nativePlusBtn.classList.add('rabbit-composer-code-btn', 'rabbit-composer-merged-plus-btn');
+    nativePlusBtn.dataset.testid = 'composer-button-prompts';
+    nativePlusBtn.setAttribute('aria-label', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
+    nativePlusBtn.setAttribute('title', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
+    nativePlusBtn.setAttribute('aria-haspopup', 'menu');
+    nativePlusBtn.setAttribute('aria-expanded', 'false');
+    if (nativePlusBtn.dataset.rabbitPromptIconApplied !== '1') {
+      nativePlusBtn.dataset.rabbitPromptIconApplied = '1';
+      nativePlusBtn.innerHTML = `<span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>`;
+    }
+
+    let menu = document.getElementById(`rabbit-composer-prompt-menu-${nativePlusBtn.dataset.rabbitPromptMenuId || ''}`);
+    if (!(menu instanceof HTMLElement)) {
+      const menuId = `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
+      nativePlusBtn.dataset.rabbitPromptMenuId = menuId.slice('rabbit-composer-prompt-menu-'.length);
+      menu = document.createElement('div');
+      menu.id = menuId;
+      menu.className = 'rabbit-composer-prompt-menu';
+      menu.setAttribute('role', 'menu');
+      menu.setAttribute('aria-hidden', 'true');
+      menu.dataset.triggerId = menuId;
+      document.body.appendChild(menu);
+      nativePlusBtn.setAttribute('aria-controls', menuId);
+    }
+
+    if (nativePlusBtn.dataset.bound === '1') return true;
+    nativePlusBtn.dataset.bound = '1';
+
+    const onPromptButtonActivate = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
+      lastClickedPromptBtn = nativePlusBtn;
+      const opening = !menu.classList.contains('open');
+      closeComposerPromptMenus();
+      if (!opening) return;
+      positionComposerPromptMenu(menu, nativePlusBtn);
+      buildComposerPromptMenu(menu, 'all', input, nativePlusBtn);
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      nativePlusBtn.setAttribute('aria-expanded', 'true');
+    };
+
+    nativePlusBtn.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onPromptButtonActivate(event);
+    });
+
+    nativePlusBtn.addEventListener('click', (event) => {
+      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    return true;
+  }
+
   function ensureComposerPromptDock(shell, input) {
     if (!(shell instanceof HTMLElement)) return;
     if (!(input instanceof HTMLElement)) return;
+
+    if (bindComposerPromptMenuToPlus(shell, input)) return;
     if (shell.querySelector('.rabbit-composer-prompt-dock')) return;
 
     const anchor = shell.querySelector('#composer-plus-btn, [data-testid="composer-plus-btn"]') || findComposerAttachButton(shell);
@@ -1775,70 +1839,6 @@
       menu.classList.add('open');
       menu.setAttribute('aria-hidden', 'false');
       btn.setAttribute('aria-expanded', 'true');
-    const anchorData = findComposerPromptAnchor(shell, input);
-    const nativePlusBtn = anchorData?.anchor instanceof HTMLButtonElement ? anchorData.anchor : null;
-    if (!(nativePlusBtn instanceof HTMLButtonElement)) return;
-
-    const originalLabel = nativePlusBtn.getAttribute('aria-label') || nativePlusBtn.getAttribute('title') || '';
-    nativePlusBtn.classList.add('rabbit-composer-code-btn', 'rabbit-composer-merged-plus-btn');
-    nativePlusBtn.dataset.testid = 'composer-button-prompts';
-    nativePlusBtn.setAttribute('aria-label', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
-    nativePlusBtn.setAttribute('title', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
-    nativePlusBtn.setAttribute('aria-haspopup', 'menu');
-    nativePlusBtn.setAttribute('aria-expanded', 'false');
-    if (nativePlusBtn.dataset.rabbitPromptIconApplied !== '1') {
-      nativePlusBtn.dataset.rabbitPromptIconApplied = '1';
-      nativePlusBtn.innerHTML = `<span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>`;
-    }
-
-    let menu = document.getElementById(`rabbit-composer-prompt-menu-${nativePlusBtn.dataset.rabbitPromptMenuId || ''}`);
-    if (!(menu instanceof HTMLElement)) {
-      const menuId = `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
-      nativePlusBtn.dataset.rabbitPromptMenuId = menuId.slice('rabbit-composer-prompt-menu-'.length);
-      menu = document.createElement('div');
-      menu.id = menuId;
-      menu.className = 'rabbit-composer-prompt-menu';
-      menu.setAttribute('role', 'menu');
-      menu.setAttribute('aria-hidden', 'true');
-      menu.dataset.triggerId = menuId;
-      document.body.appendChild(menu);
-      nativePlusBtn.setAttribute('aria-controls', menuId);
-    }
-
-    if (nativePlusBtn.dataset.bound === '1') return;
-    nativePlusBtn.dataset.bound = '1';
-
-    btn.addEventListener('click', (event) => {
-    const onPromptButtonActivate = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
-      lastClickedPromptBtn = nativePlusBtn;
-      const opening = !menu.classList.contains('open');
-      closeComposerPromptMenus();
-      if (!opening) return;
-      positionComposerPromptMenu(menu, btn);
-      buildComposerPromptMenu(menu, 'all', input);
-      menu.classList.add('open');
-      menu.setAttribute('aria-hidden', 'false');
-      btn.setAttribute('aria-expanded', 'true');
-      positionComposerPromptMenu(menu, nativePlusBtn);
-      buildComposerPromptMenu(menu, 'root', input, nativePlusBtn);
-      menu.classList.add('open');
-      menu.setAttribute('aria-hidden', 'false');
-      nativePlusBtn.setAttribute('aria-expanded', 'true');
-    };
-
-    nativePlusBtn.addEventListener('mousedown', (event) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.stopPropagation();
-      onPromptButtonActivate(event);
-    });
-    nativePlusBtn.addEventListener('click', (event) => {
-      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
-      event.preventDefault();
-      event.stopPropagation();
     });
   }
 
