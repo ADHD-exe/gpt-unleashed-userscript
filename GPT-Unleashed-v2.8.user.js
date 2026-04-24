@@ -1006,6 +1006,7 @@
       list.appendChild(item);
       });
     });
+    applyCustomTooltips(panel);
 
     panel.querySelectorAll('.rabbit-prompt-actions button').forEach((btn) => {
       if (!(btn instanceof HTMLButtonElement)) return;
@@ -1140,8 +1141,40 @@
     const panel = document.getElementById(PANEL_ID);
     if (panel instanceof HTMLElement) {
       renderPromptsList(panel);
+      renderGlobalFilesList(panel);
     }
     renderFloatingPinnedPrompts();
+  }
+
+  function renderGlobalFilesList(panel) {
+    const list = panel?.querySelector('#rabbit-global-files-list');
+    if (!(list instanceof HTMLElement)) return;
+    const stored = JSON.parse(localStorage.getItem(GLOBAL_FILES_KEY) || '[]');
+    if (!stored.length) {
+      list.textContent = 'No files attached.';
+      return;
+    }
+    list.innerHTML = '';
+    stored.forEach((file) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:6px;margin:3px 0;font-size:11px;';
+      row.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escapeHtml(file.name || 'Unnamed file')}</span>`;
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '✕';
+      del.style.cssText = 'flex-shrink:0;font-size:10px;padding:2px 5px;';
+      del.onclick = async () => {
+        const ok = await createDialogo({ message: `Remove "${file.name}"?`, type: 'confirm', title: 'Remove File' });
+        if (!ok) return;
+        const updated = JSON.parse(localStorage.getItem(GLOBAL_FILES_KEY) || '[]')
+          .filter((entry) => entry.id !== file.id);
+        localStorage.setItem(GLOBAL_FILES_KEY, JSON.stringify(updated));
+        renderGlobalFilesList(panel);
+        showNotification(`Removed "${file.name}".`);
+      };
+      row.appendChild(del);
+      list.appendChild(row);
+    });
   }
 
   function openPromptReviewModal(promptItem) {
@@ -1383,6 +1416,7 @@
             let payload = result;
             try { payload = JSON.parse(result); } catch { /* plain text */ }
             const added = importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+            showNotification(`Imported ${added} prompt(s).`);
             if (added) showNotification(`Imported ${added} prompt(s).`);
             renderResults();
           };
@@ -1542,6 +1576,7 @@
               let payload = result;
               try { payload = JSON.parse(result); } catch { /* plain text */ }
               const added = importPromptsFromPayload(payload, file.name || 'Imported Prompt');
+              showNotification(`Imported ${added} prompt(s).`);
               if (added) showNotification(`Imported ${added} prompt(s).`);
               buildComposerPromptMenu(menu, normalizedMode, input);
               importPromptsFromPayload(payload, file.name || 'Imported Prompt');
@@ -1913,6 +1948,169 @@
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 800);
+  }
+
+  function showNotification(message) {
+    const text = String(message || '').trim();
+    if (!text) return;
+    const toast = document.createElement('div');
+    toast.className = 'rabbit-toast-notification';
+    toast.textContent = text;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 220);
+    }, 2200);
+  }
+
+  function createDialogo({ message, type = 'alert', title = 'Notice', actions = null } = {}) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed; inset: 0; z-index: 2147483647;
+        background: rgba(0,0,0,0.55);
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px; opacity: 0; transition: opacity 180ms ease;
+      `;
+
+      const card = document.createElement('div');
+      card.style.cssText = `
+        background: var(--rabbit-panel-bg, #000900);
+        color: var(--rabbit-panel-font, #00ff75);
+        border: 1px solid var(--rabbit-panel-outline, #00fddf);
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 420px;
+        width: 100%;
+        font: 13px/1.4 system-ui, sans-serif;
+        box-shadow: 0 16px 44px rgba(0,0,0,0.5);
+      `;
+      card.onclick = (event) => event.stopPropagation();
+
+      const titleEl = document.createElement('div');
+      titleEl.style.cssText = 'font-weight: 700; font-size: 14px; margin-bottom: 10px;';
+      titleEl.textContent = title;
+
+      const msgEl = document.createElement('p');
+      msgEl.style.cssText = 'margin: 0 0 16px 0; opacity: 0.88; font-size: 12px; line-height: 1.5;';
+      msgEl.textContent = String(message || '');
+
+      const footer = document.createElement('div');
+      footer.style.cssText = 'display: flex; gap: 8px; justify-content: flex-end;';
+
+      const close = (value) => {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 180);
+        resolve(value);
+      };
+
+      overlay.addEventListener('click', () => close(false));
+
+      let buttons = actions;
+      if (!buttons) {
+        buttons = type === 'confirm'
+          ? [
+              { label: 'Cancel', style: 'secondary', value: false },
+              { label: 'Confirm', style: 'primary', value: true }
+            ]
+          : [{ label: 'OK', style: 'primary', value: true }];
+      }
+
+      buttons.forEach((btn) => {
+        const actionBtn = document.createElement('button');
+        actionBtn.textContent = btn.label;
+        actionBtn.style.cssText = `
+          appearance: none;
+          border: 1px solid var(--rabbit-panel-outline, #00fddf);
+          background: ${btn.style === 'primary' ? 'var(--rabbit-panel-btn, #0a6600)' : btn.style === 'danger' ? '#6b0000' : 'transparent'};
+          color: var(--rabbit-panel-font, #00ff75);
+          border-radius: 8px;
+          padding: 6px 14px;
+          cursor: pointer;
+          font-size: 12px;
+          min-height: 28px;
+        `;
+        actionBtn.onclick = () => close(btn.value !== undefined ? btn.value : true);
+        footer.appendChild(actionBtn);
+      });
+
+      card.appendChild(titleEl);
+      card.appendChild(msgEl);
+      card.appendChild(footer);
+      overlay.appendChild(card);
+      document.body.appendChild(overlay);
+
+      requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+      setTimeout(() => footer.lastChild?.focus(), 50);
+    });
+  }
+
+  function createCustomTooltip(el, text, position = 'top') {
+    if (!(el instanceof HTMLElement)) return;
+    if (!text) return;
+    if (el.dataset.rabbitTooltipBound === '1') return;
+    el.dataset.rabbitTooltipBound = '1';
+
+    const show = () => {
+      el._tooltipEl?.remove();
+      const tip = document.createElement('div');
+      tip.style.cssText = `
+        position: fixed;
+        z-index: 2147483646;
+        background: var(--rabbit-panel-bubble, #002b1b);
+        color: var(--rabbit-panel-font, #00ff75);
+        border: 1px solid var(--rabbit-panel-outline, #00fddf);
+        border-radius: 6px;
+        padding: 4px 8px;
+        font-size: 11px;
+        line-height: 1.3;
+        max-width: 220px;
+        pointer-events: none;
+        white-space: pre-wrap;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        opacity: 0;
+        transition: opacity 120ms ease;
+      `;
+      tip.textContent = typeof text === 'object' ? (text.text || '') : String(text);
+      document.body.appendChild(tip);
+      el._tooltipEl = tip;
+
+      const margin = 6;
+      const rect = el.getBoundingClientRect();
+      const tw = tip.offsetWidth;
+      const th = tip.offsetHeight;
+      let top = rect.top - th - margin;
+      let left = rect.left + rect.width / 2 - tw / 2;
+      if (position === 'bottom') top = rect.bottom + margin;
+      if (position === 'left') {
+        top = rect.top + rect.height / 2 - th / 2;
+        left = rect.left - tw - margin;
+      }
+      if (position === 'right') {
+        top = rect.top + rect.height / 2 - th / 2;
+        left = rect.right + margin;
+      }
+      left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+      top = Math.max(8, Math.min(top, window.innerHeight - th - 8));
+
+      tip.style.left = `${left}px`;
+      tip.style.top = `${top}px`;
+      requestAnimationFrame(() => { tip.style.opacity = '1'; });
+    };
+
+    const hide = () => {
+      if (el._tooltipEl) {
+        el._tooltipEl.remove();
+        el._tooltipEl = null;
+      }
+    };
+
+    el.addEventListener('mouseenter', show);
+    el.addEventListener('mouseleave', hide);
+    el.addEventListener('mousedown', hide);
+    el.addEventListener('focus', show);
+    el.addEventListener('blur', hide);
   }
 
   function extractMessageText(target) {
@@ -3665,6 +3863,29 @@
         line-height: 1.45;
       }
 
+      .rabbit-toast-notification {
+        position: fixed;
+        right: 14px;
+        bottom: 14px;
+        z-index: 2147483646;
+        background: var(--rabbit-panel-bg, #000900);
+        color: var(--rabbit-panel-font, #00ff75);
+        border: 1px solid var(--rabbit-panel-outline, #00fddf);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+        opacity: 0;
+        transform: translateY(8px);
+        transition: opacity 160ms ease, transform 160ms ease;
+        pointer-events: none;
+      }
+
+      .rabbit-toast-notification.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
       #${PANEL_ID} .rabbit-modal {
         position: fixed;
         inset: 0;
@@ -3772,6 +3993,7 @@
       renderGlobalFilesList(panel);
     }
 
+    applyCustomTooltips(panel);
     updatePanelHeader(panel);
     if (shouldSave) scheduleSaveSettings();
   }
@@ -3987,6 +4209,44 @@
       if (!(btn instanceof HTMLButtonElement)) return;
       const tip = settingsActionTips[btn.dataset.action || ''];
       if (tip) btn.title = tip;
+    });
+  }
+
+  function applyCustomTooltips(panel) {
+    if (!(panel instanceof HTMLElement)) return;
+
+    panel.querySelectorAll('.rabbit-nav-grid button').forEach((btn) => {
+      const tips = {
+        'nav-themes': 'Customize colors',
+        'nav-layout': 'Adjust bubble layout',
+        'nav-font': 'Change fonts',
+        'nav-prompts': 'Manage saved prompts',
+        'export-chat': 'Export chat as Markdown',
+        'delete-chats-open': 'Delete sidebar chats',
+        'nav-settings': 'Script settings'
+      };
+      const action = btn.dataset.action || '';
+      if (tips[action]) createCustomTooltip(btn, tips[action], 'left');
+    });
+
+    panel.querySelectorAll('.rabbit-panel-actions button').forEach((btn) => {
+      const action = btn.dataset.action || '';
+      if (action === 'toggle') createCustomTooltip(btn, 'Minimize panel', 'bottom');
+      if (action === 'nav-home') createCustomTooltip(btn, 'Home', 'bottom');
+    });
+
+    panel.querySelectorAll('.rabbit-prompt-actions button').forEach((btn) => {
+      const tips = {
+        'prompt-insert': 'Insert into composer',
+        'prompt-new-chat': 'Start new chat with this prompt',
+        'prompt-favorite-toggle': 'Toggle favorite',
+        'prompt-pin-toggle': 'Pin to floating card',
+        'prompt-review': 'Review full prompt',
+        'prompt-expand-toggle': 'Expand/collapse',
+        'prompt-enhance': 'Enhance with AI'
+      };
+      const action = btn.dataset.action || '';
+      if (tips[action]) createCustomTooltip(btn, tips[action], 'top');
     });
   }
 
@@ -4493,6 +4753,7 @@
     updateUiThemeControls(panel);
     renderThemeSelect(panel);
     renderGlobalFilesList(panel);
+    applyCustomTooltips(panel);
 
     panel.addEventListener('input', (event) => {
       const t = event.target;
@@ -4817,6 +5078,7 @@
         if (typeInput instanceof HTMLSelectElement) typeInput.value = 'user';
         if (tagsInput) tagsInput.value = '';
         if (status) status.textContent = `Saved "${normalized.title}".`;
+        showNotification(`Saved "${normalized.title}"`);
         showNotification(`Saved "${normalized.title}".`);
         refreshPromptViews();
       }
@@ -4989,9 +5251,11 @@
           }
           const added = importPromptsFromPayload(payload, 'URL Prompt');
           renderPromptsList(panel);
+          renderGlobalFilesList(panel);
           renderFloatingPinnedPrompts();
           if (added) showNotification(`Imported ${added} prompt(s).`);
           if (status) status.textContent = added ? `Imported ${added} prompt(s).` : 'No prompts found.';
+          if (added) showNotification(`Imported ${added} prompt(s).`);
         }).catch((err) => {
           if (status) status.textContent = `Fetch failed: ${err.message}`;
         });
@@ -5138,6 +5402,32 @@
     panel.addEventListener('change', (event) => {
       const t = event.target;
       if (!(t instanceof HTMLInputElement)) return;
+      if (t.id === 'rabbit-file-input') {
+        const files = [...(t.files || [])];
+        if (!files.length) return;
+        (async () => {
+          const stored = JSON.parse(localStorage.getItem(GLOBAL_FILES_KEY) || '[]');
+          for (const file of files) {
+            const data = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result);
+              reader.readAsDataURL(file);
+            });
+            stored.push({
+              id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
+              name: file.name,
+              type: file.type,
+              size: file.size,
+              data
+            });
+          }
+          localStorage.setItem(GLOBAL_FILES_KEY, JSON.stringify(stored));
+          renderGlobalFilesList(panel);
+          showNotification(`Added ${files.length} file(s).`);
+          t.value = '';
+        })();
+        return;
+      }
       if (t.dataset.action !== 'prompt-file') return;
 
       const status = panel.querySelector('[data-role="prompt-status"]');
@@ -5158,6 +5448,7 @@
         renderFloatingPinnedPrompts();
         if (added) showNotification(`Imported ${added} prompt(s).`);
         if (status) status.textContent = added ? `Imported ${added} prompt(s).` : 'No prompts found.';
+        if (added) showNotification(`Imported ${added} prompt(s).`);
         t.value = '';
       };
       reader.onerror = () => {
