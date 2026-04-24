@@ -2410,6 +2410,78 @@ Open the GitHub Raw install page now?`);
         opacity: 0.78;
       }
 
+      /* =========================
+         COMPOSER LAYOUT OVERRIDES
+         ========================= */
+
+      [data-rabbit-warning-hidden="1"],
+      .rabbit-composer-shell ~ div,
+      .rabbit-composer-shell + div {
+        display: none !important;
+      }
+
+      .rabbit-composer-shell {
+        flex-direction: column !important;
+        overflow: hidden !important;
+        border-radius: 18px !important;
+        gap: 0 !important;
+        padding: 0 !important;
+      }
+
+      .rabbit-composer-shell .rabbit-composer-input,
+      .rabbit-composer-shell textarea,
+      .rabbit-composer-shell [contenteditable="true"] {
+        border-radius: 18px 18px 0 0 !important;
+        padding: 14px 16px 10px 16px !important;
+        min-height: 52px !important;
+      }
+
+      .rabbit-composer-shell > div:last-child,
+      .rabbit-composer-shell [class*="bottom"],
+      .rabbit-composer-shell [class*="toolbar"],
+      .rabbit-composer-shell [class*="footer"],
+      .rabbit-composer-shell [class*="actions"]:last-child {
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 70%, #000) !important;
+        border-radius: 0 0 18px 18px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 4px 10px !important;
+        margin: 0 !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        min-height: 36px !important;
+      }
+
+      .rabbit-composer-prompt-dock {
+        align-self: center !important;
+        margin: 0 4px 0 0 !important;
+      }
+
+      main > div:last-child:not([class*="conversation"]):not([class*="thread"]):not([role]),
+      body > div > div:last-child > p,
+      body > div > div:last-child > span,
+      [class*="below-composer"],
+      [class*="disclaimer"],
+      [class*="warning-text"],
+      footer p,
+      footer span {
+        display: none !important;
+      }
+
+      footer:empty,
+      footer:has(> :only-child[data-rabbit-warning-hidden]) {
+        display: none !important;
+      }
+
+      .rabbit-composer-toolbar-row {
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 85%, #0a0a0a) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+      }
+
+      .rabbit-composer-toolbar-row * {
+        color: var(--rabbit-composer-text) !important;
+      }
+
       .rabbit-composer-prompt-overlay {
         position: fixed;
         inset: 0;
@@ -5267,6 +5339,57 @@ Open the GitHub Raw install page now?`);
     });
   }
 
+  function fixComposerLayout() {
+    document.querySelectorAll('.rabbit-composer-shell').forEach((shell) => {
+      if (!(shell instanceof HTMLElement)) return;
+      if (shell.dataset.layoutFixed === '1') return;
+
+      const children = [...shell.children].filter((child) => child instanceof HTMLElement);
+      const inputChild = children.find((child) =>
+        child.querySelector('textarea, [contenteditable="true"]')
+      );
+      const toolbarChildren = children.filter((child) => child !== inputChild);
+
+      if (!inputChild || !toolbarChildren.length) return;
+
+      shell.dataset.layoutFixed = '1';
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'rabbit-composer-toolbar-row';
+      toolbar.style.cssText = `
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 4px 10px !important;
+        background: color-mix(in srgb, var(--rabbit-composer-bg, #000) 70%, #000) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 0 0 18px 18px !important;
+        min-height: 36px !important;
+        margin: 0 !important;
+      `;
+
+      toolbarChildren.forEach((child) => toolbar.appendChild(child));
+      shell.appendChild(toolbar);
+      inputChild.style.borderRadius = '18px 18px 0 0';
+    });
+
+    document.querySelectorAll('main > div, body > div > main > div').forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      if (el.closest('.rabbit-composer-shell')) return;
+      if (el.closest('[data-message-author-role]')) return;
+
+      const text = (el.textContent || '').toLowerCase();
+      const rect = el.getBoundingClientRect();
+      if (
+        rect.bottom > window.innerHeight - 80 &&
+        rect.top > window.innerHeight - 100 &&
+        (text.includes('make mistakes') || text.includes('check important') || text === '')
+      ) {
+        el.style.setProperty('display', 'none', 'important');
+      }
+    });
+  }
+
   function pauseObserver() {
     observerPaused = true;
     if (mutationObserver) {
@@ -5287,6 +5410,7 @@ Open the GitHub Raw install page now?`);
       refreshComposerStyling();
       refreshGptWarningVisibility();
       ensureSidebarDeleteButtons();
+      fixComposerLayout();
     } finally {
       resumeObserver();
     }
