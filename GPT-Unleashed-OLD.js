@@ -2,7 +2,7 @@
 // @name         GPT-Unleashed
 // @namespace    https://openai.com/
 // @version      2.8.26
-// @description  Customize ChatGPT background, bubbles, embedded blocks, composer theme colors, sidebar, alignment, and font with a bottom-right launcher.
+// @description  Customize ChatGPT background, bubbles, embedded blocks, composer, sidebar, alignment, and font with a bottom-right launcher.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
 // @run-at       document-idle
@@ -33,6 +33,8 @@
   const COMPOSER_EXCLUSION_PATTERN = /\b(search|sidebar|drawer|modal|dialog|popover|tooltip|toast|banner|menu|launcher|artifact|interpreter|notebook|canvas|status|alert)\b/;
 
   const LAUNCHER_ICON_UP = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2264%22%20height=%2264%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20fill=%22black%22%20d=%22M6%204h12v2H6zm5%2010v6h2v-6h5l-6-6l-6%206z%22%3E%3C/path%3E%3C/svg%3E';
+  const COMPOSER_PROMPT_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M9.812 1.238a1 1 0 0 1 .73 1.11l-.023.115-3.106 11.591a1 1 0 0 1-1.956-.403l.024-.114L8.587 1.946a1 1 0 0 1 1.225-.708M4.707 4.293a1 1 0 0 1 0 1.414L2.414 8l2.293 2.293a1 1 0 1 1-1.414 1.414l-3-3a1 1 0 0 1 0-1.414l3-3a1 1 0 0 1 1.414 0m6.586 0a1 1 0 0 1 1.32-.083l.094.083 3 3a1 1 0 0 1 .083 1.32l-.083.094-3 3a1 1 0 0 1-1.497-1.32l.083-.094L13.586 8l-2.293-2.293a1 1 0 0 1 0-1.414"/></svg>';
+  const COMPOSER_ENHANCE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="m12 3l-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/></svg>';
   const LAUNCHER_ICON_DOWN = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2264%22%20height=%2264%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20fill=%22black%22%20d=%22M6%2018h12v2H6zm5-14v6H6l6%206l6-6h-5V4z%22%3E%3C/path%3E%3C/svg%3E';
   const LAUNCHER_ICON_EMBLEM = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2264%22%20height=%2264%22%20viewBox=%220%200%2024%2024%22%3E%3Cg%20fill=%22none%22%20stroke=%22black%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%20stroke-width=%221.5%22%3E%3Cpath%20d=%22M11.745%2014.85L6.905%2012V7c0-2.21%201.824-4%204.076-4c1.397%200%202.63.69%203.365%201.741%22%3E%3C/path%3E%3Cpath%20d=%22M9.6%2019.18A4.1%204.1%200%200%200%2013.02%2021c2.25%200%204.076-1.79%204.076-4v-5L12.16%209.097%22%3E%3C/path%3E%3Cpath%20d=%22M9.452%2013.5V7.67l4.412-2.5c1.95-1.105%204.443-.45%205.569%201.463a3.93%203.93%200%200%201%20.076%203.866%22%3E%3C/path%3E%3Cpath%20d=%22M4.49%2013.5a3.93%203.93%200%200%200%20.075%203.866c1.126%201.913%203.62%202.568%205.57%201.464l4.412-2.5l.096-5.596%22%3E%3C/path%3E%3Cpath%20d=%22M17.096%2017.63a4.09%204.09%200%200%200%203.357-1.996c1.126-1.913.458-4.36-1.492-5.464l-4.413-2.5l-5.059%202.755%22%3E%3C/path%3E%3Cpath%20d=%22M6.905%206.37a4.09%204.09%200%200%200-3.358%201.996c-1.126%201.914-.458%204.36%201.492%205.464l4.413%202.5l5.048-2.75%22%3E%3C/path%3E%3C/g%3E%3C/svg%3E';
 
@@ -1236,7 +1238,14 @@
   }
 
   function closeComposerPromptMenus() {
-    // Composer prompt-bar/menu injection was removed. Theme coloring is the only composer-panel behavior left here.
+    document.querySelectorAll('.rabbit-composer-prompt-menu').forEach((menu) => {
+      menu.classList.remove('open');
+      menu.setAttribute('aria-hidden', 'true');
+    });
+    document.querySelectorAll('.rabbit-composer-code-btn[aria-expanded="true"]').forEach((btn) => {
+      btn.setAttribute('aria-expanded', 'false');
+    });
+    document.querySelectorAll('.rabbit-composer-prompt-overlay').forEach((overlay) => overlay.remove());
   }
 
   function openPromptEditorPanel() {
@@ -1595,6 +1604,245 @@
     if (leftMostButton instanceof HTMLElement) return leftMostButton;
 
     return null;
+  }
+
+  function findComposerPromptAnchor(shell, input) {
+    if (!(shell instanceof HTMLElement)) return null;
+    const plusButton = shell.querySelector('#composer-plus-btn, [data-testid="composer-plus-btn"]');
+    if (plusButton instanceof HTMLElement && plusButton.parentElement instanceof HTMLElement) {
+      return { container: plusButton.parentElement, anchor: plusButton };
+    }
+
+    const attachBtn = findComposerAttachButton(shell);
+    if (attachBtn instanceof HTMLElement && attachBtn.parentElement instanceof HTMLElement) {
+      return { container: attachBtn.parentElement, anchor: attachBtn };
+    }
+
+    const anchorSelectors = [
+      'button[data-testid*="send"]',
+      'button[aria-label*="Send" i]',
+      'button[title*="Send" i]',
+      'button[data-testid*="composer"]',
+      '[class*="send"] button',
+      '[class*="composer"] button',
+      '[class*="toolbar"] button',
+      '[class*="actions"] button'
+    ];
+
+    for (const selector of anchorSelectors) {
+      const candidate = shell.querySelector(selector);
+      if (!(candidate instanceof HTMLElement)) continue;
+      const container = candidate.parentElement;
+      if (container instanceof HTMLElement) {
+        return { container, anchor: candidate };
+      }
+    }
+
+    if (input instanceof HTMLElement && input.parentElement instanceof HTMLElement) {
+      return { container: input.parentElement, anchor: input.nextElementSibling || shell.firstElementChild };
+    }
+
+    return { container: shell, anchor: shell.firstElementChild };
+  }
+
+  function positionComposerPromptMenu(menu, btn) {
+    if (!(menu instanceof HTMLElement) || !(btn instanceof HTMLElement)) return;
+    const margin = 8;
+    const rect = btn.getBoundingClientRect();
+    menu.style.visibility = 'hidden';
+    menu.classList.add('open');
+    const menuRect = menu.getBoundingClientRect();
+    menu.classList.remove('open');
+    menu.style.visibility = '';
+
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const maxLeft = Math.max(margin, viewportWidth - menuRect.width - margin);
+    const maxTop = Math.max(margin, viewportHeight - menuRect.height - margin);
+    const preferredLeft = rect.left;
+    const preferredTop = rect.bottom + margin;
+    const left = Math.min(maxLeft, Math.max(margin, preferredLeft));
+    const top = Math.min(maxTop, Math.max(margin, preferredTop));
+
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+  }
+
+  function placePromptDockNearAttach(shell, dock) {
+    if (!(shell instanceof HTMLElement) || !(dock instanceof HTMLElement)) return;
+    const anchorData = findComposerPromptAnchor(shell, null);
+    if (anchorData?.container instanceof HTMLElement) {
+      const existingBtn = anchorData.container.querySelector('[data-testid="composer-button-prompts"]');
+      if (existingBtn instanceof HTMLElement && existingBtn !== dock) {
+        existingBtn.closest('.rabbit-composer-prompt-dock')?.remove();
+      }
+      if (anchorData.anchor instanceof Node) {
+        anchorData.container.insertBefore(dock, anchorData.anchor);
+      } else {
+        anchorData.container.appendChild(dock);
+      }
+      return;
+    }
+
+    const toolbar = shell.querySelector('[class*="toolbar"], [class*="actions"], [data-testid*="composer"]');
+    if (toolbar instanceof HTMLElement) {
+      toolbar.prepend(dock);
+      return;
+    }
+
+    shell.prepend(dock);
+  }
+
+  let lastClickedPromptBtn = null;
+
+  function bindComposerPromptMenuToPlus(shell, input) {
+    const anchorData = findComposerPromptAnchor(shell, input);
+    const nativePlusBtn = anchorData?.anchor instanceof HTMLButtonElement ? anchorData.anchor : null;
+    if (!(nativePlusBtn instanceof HTMLButtonElement)) return false;
+
+    const originalLabel = nativePlusBtn.getAttribute('aria-label') || nativePlusBtn.getAttribute('title') || '';
+    nativePlusBtn.classList.add('rabbit-composer-code-btn', 'rabbit-composer-merged-plus-btn');
+    nativePlusBtn.dataset.testid = 'composer-button-prompts';
+    nativePlusBtn.setAttribute('aria-label', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
+    nativePlusBtn.setAttribute('title', originalLabel ? `${originalLabel} + Prompts` : 'Prompts and tools');
+    nativePlusBtn.setAttribute('aria-haspopup', 'menu');
+    nativePlusBtn.setAttribute('aria-expanded', 'false');
+    if (nativePlusBtn.dataset.rabbitPromptIconApplied !== '1') {
+      nativePlusBtn.dataset.rabbitPromptIconApplied = '1';
+      nativePlusBtn.innerHTML = `<span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>`;
+    }
+
+    let menu = document.getElementById(`rabbit-composer-prompt-menu-${nativePlusBtn.dataset.rabbitPromptMenuId || ''}`);
+    if (!(menu instanceof HTMLElement)) {
+      const menuId = `rabbit-composer-prompt-menu-${Math.random().toString(36).slice(2, 10)}`;
+      nativePlusBtn.dataset.rabbitPromptMenuId = menuId.slice('rabbit-composer-prompt-menu-'.length);
+      menu = document.createElement('div');
+      menu.id = menuId;
+      menu.className = 'rabbit-composer-prompt-menu';
+      menu.setAttribute('role', 'menu');
+      menu.setAttribute('aria-hidden', 'true');
+      menu.dataset.triggerId = menuId;
+      document.body.appendChild(menu);
+      nativePlusBtn.setAttribute('aria-controls', menuId);
+    }
+
+    if (nativePlusBtn.dataset.bound === '1') return true;
+    nativePlusBtn.dataset.bound = '1';
+
+    const onPromptButtonActivate = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
+      lastClickedPromptBtn = nativePlusBtn;
+      const opening = !menu.classList.contains('open');
+      closeComposerPromptMenus();
+      if (!opening) return;
+      positionComposerPromptMenu(menu, nativePlusBtn);
+      buildComposerPromptMenu(menu, 'all', input, nativePlusBtn);
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      nativePlusBtn.setAttribute('aria-expanded', 'true');
+    };
+
+    nativePlusBtn.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onPromptButtonActivate(event);
+    });
+
+    nativePlusBtn.addEventListener('click', (event) => {
+      if (nativePlusBtn.dataset.rabbitBypassPromptMenu === '1') return;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+
+    return true;
+  }
+
+  function ensureComposerPromptDock(shell, input) {
+    if (!(shell instanceof HTMLElement)) return;
+    if (!(input instanceof HTMLElement)) return;
+    const anchorData = findComposerPromptAnchor(shell, input);
+    const anchorContainer = anchorData?.container instanceof HTMLElement ? anchorData.container : null;
+    if (anchorContainer?.querySelector('.rabbit-composer-prompt-dock')) return;
+    if (!anchorContainer && shell.querySelector(':scope > .rabbit-composer-prompt-dock')) return;
+
+    const dock = document.createElement('div');
+    dock.className = 'rabbit-composer-prompt-dock';
+
+    const pill = document.createElement('div');
+    pill.className = 'rabbit-composer-pill-container';
+
+    const enhanceBtn = document.createElement('button');
+    enhanceBtn.type = 'button';
+    enhanceBtn.className = 'rabbit-composer-code-btn rabbit-composer-ai-btn';
+    enhanceBtn.setAttribute('data-testid', 'composer-button-ai-enhance');
+    enhanceBtn.setAttribute('aria-label', 'Enhance prompt');
+    enhanceBtn.setAttribute('title', 'Enhance current prompt with AI');
+    enhanceBtn.innerHTML = `<span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_ENHANCE_ICON}</span>`;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'rabbit-composer-code-btn';
+    btn.setAttribute('data-testid', 'composer-button-prompts');
+    btn.setAttribute('aria-label', 'Prompts');
+    btn.setAttribute('title', 'Prompts');
+    btn.setAttribute('aria-haspopup', 'menu');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = `<span class="rabbit-composer-code-btn-icon" aria-hidden="true">${COMPOSER_PROMPT_ICON}</span>`;
+    pill.appendChild(enhanceBtn);
+    pill.appendChild(btn);
+    dock.appendChild(pill);
+
+    const menuId = `rabbit-menu-${Math.random().toString(36).slice(2, 9)}`;
+    const menu = document.createElement('div');
+    menu.id = menuId;
+    menu.className = 'rabbit-composer-prompt-menu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-hidden', 'true');
+    dock.appendChild(menu);
+    btn.setAttribute('aria-controls', menuId);
+
+    if (anchorContainer instanceof HTMLElement) {
+      if (anchorData?.anchor instanceof Node && anchorData.anchor.parentNode === anchorContainer) {
+        anchorContainer.insertBefore(dock, anchorData.anchor);
+      } else {
+        anchorContainer.appendChild(dock);
+      }
+    } else {
+      placePromptDockNearAttach(shell, dock);
+    }
+
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (menu.classList.contains('open')) {
+        closeComposerPromptMenus();
+        return;
+      }
+
+      closeComposerPromptMenus();
+      positionComposerPromptMenu(menu, btn);
+      buildComposerPromptMenu(menu, 'all', input);
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      btn.setAttribute('aria-expanded', 'true');
+    });
+
+    enhanceBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeComposerPromptMenus();
+      const draft = getComposerDraftText(input);
+      const enhancedInstruction = buildPromptEnhanceInstruction(draft);
+      if (!enhancedInstruction) {
+        showNotification('Type a prompt in the composer first.');
+        return;
+      }
+      insertPromptIntoComposer(enhancedInstruction, input);
+    });
   }
 
   async function checkForUserscriptUpdate({ openInstall = false, silent = false } = {}) {
@@ -2428,18 +2676,56 @@
       }
 
       /* =========================
-         COMPOSER THEME COLORS ONLY
+         COMPOSER
          ========================= */
 
       .rabbit-composer-shell {
+        display: flex !important;
+        align-items: stretch !important;
         background: var(--rabbit-composer-bg) !important;
+        border-color: rgba(255,255,255,0.12) !important;
+        box-shadow: 0 10px 26px rgba(0,0,0,0.34) !important;
+        border-radius: 24px !important;
+        transform: none !important;
+        margin-bottom: 0 !important;
+        min-height: 64px !important;
+        max-height: min(52vh, 460px) !important;
+        overflow: visible !important;
+        position: relative !important;
+        z-index: 2147483644 !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        padding-left: 14px !important;
+        padding-right: 14px !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
+      }
+
+      .rabbit-composer-shell > div,
+      .rabbit-composer-shell [class*="inner"],
+      .rabbit-composer-shell [class*="container"],
+      .rabbit-composer-shell [class*="wrapper"] {
+        background: transparent !important;
       }
 
       .rabbit-composer-shell .rabbit-composer-input,
       .rabbit-composer-shell textarea,
       .rabbit-composer-shell [contenteditable="true"] {
+        align-self: center !important;
+        width: 100% !important;
+        background: transparent !important;
         color: var(--rabbit-composer-text) !important;
         caret-color: var(--rabbit-composer-text) !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        min-height: 42px !important;
+        max-height: min(42vh, 360px) !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        resize: none !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        margin: 0 !important;
       }
 
       .rabbit-composer-shell .rabbit-composer-input *,
@@ -2448,9 +2734,284 @@
         color: var(--rabbit-composer-text) !important;
       }
 
-      .rabbit-composer-shell textarea::placeholder,
-      .rabbit-composer-shell [contenteditable="true"][data-placeholder]::before {
-        color: color-mix(in srgb, var(--rabbit-composer-text) 68%, transparent) !important;
+      .rabbit-composer-shell textarea::placeholder {
+        color: color-mix(in srgb, var(--rabbit-composer-text) 60%, transparent) !important;
+      }
+
+      .rabbit-composer-shell button,
+      .rabbit-composer-shell svg,
+      .rabbit-composer-shell span {
+        color: inherit;
+        vertical-align: middle !important;
+      }
+
+      .rabbit-composer-prompt-dock {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        margin-right: 8px;
+        z-index: 2147483645;
+        pointer-events: auto;
+        flex: 0 0 auto;
+      }
+
+      .rabbit-composer-pill-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 4px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.2);
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 55%, #111);
+      }
+
+      .rabbit-composer-code-btn {
+        appearance: none;
+        border: 1px solid rgba(255,255,255,0.26);
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 45%, #111);
+        color: var(--rabbit-composer-text);
+        border-radius: 999px;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        z-index: 2147483646;
+        pointer-events: auto;
+      }
+
+      .rabbit-composer-ai-btn {
+        width: 26px;
+        height: 26px;
+        color: color-mix(in srgb, var(--rabbit-composer-text) 84%, #ffd54f 16%);
+      }
+
+      .rabbit-composer-code-btn-icon {
+        width: 14px;
+        height: 14px;
+        line-height: 1;
+        display: inline-flex;
+      }
+
+      .rabbit-composer-code-btn-icon svg {
+        width: 14px;
+        height: 14px;
+        display: block;
+      }
+
+      .rabbit-composer-prompt-menu {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 2147483646;
+        display: none;
+        min-width: 220px;
+        max-width: min(340px, 70vw);
+        max-height: min(50vh, 340px);
+        overflow: auto;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 80%, #101018);
+        box-shadow: 0 14px 30px rgba(0,0,0,0.42);
+        padding: 6px;
+      }
+
+      .rabbit-composer-prompt-menu.open {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .rabbit-composer-menu-item {
+        appearance: none;
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 7px;
+        background: rgba(255,255,255,0.05);
+        color: var(--rabbit-composer-text);
+        text-align: left;
+        padding: 6px 8px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .rabbit-composer-menu-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 2px;
+      }
+
+      .rabbit-composer-menu-empty {
+        padding: 4px 6px;
+        font-size: 11px;
+        opacity: 0.78;
+      }
+
+      /* =========================
+         COMPOSER LAYOUT OVERRIDES
+         ========================= */
+
+      [data-rabbit-warning-hidden="1"],
+      .rabbit-composer-shell ~ div,
+      .rabbit-composer-shell + div {
+        display: none !important;
+      }
+
+      .rabbit-composer-shell {
+        flex-direction: column !important;
+        overflow: hidden !important;
+        border-radius: 18px !important;
+        gap: 0 !important;
+        padding: 0 !important;
+      }
+
+      .rabbit-composer-shell .rabbit-composer-input,
+      .rabbit-composer-shell textarea,
+      .rabbit-composer-shell [contenteditable="true"] {
+        border-radius: 18px 18px 0 0 !important;
+        padding: 14px 16px 10px 16px !important;
+        min-height: 52px !important;
+      }
+
+      .rabbit-composer-shell > div:last-child,
+      .rabbit-composer-shell [class*="bottom"],
+      .rabbit-composer-shell [class*="toolbar"],
+      .rabbit-composer-shell [class*="footer"],
+      .rabbit-composer-shell [class*="actions"]:last-child {
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 70%, #000) !important;
+        border-radius: 0 0 18px 18px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 4px 10px !important;
+        margin: 0 !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        min-height: 36px !important;
+      }
+
+      .rabbit-composer-prompt-dock {
+        align-self: center !important;
+        margin: 0 4px 0 0 !important;
+      }
+
+      main > div:last-child:not([class*="conversation"]):not([class*="thread"]):not([role]),
+      body > div > div:last-child > p,
+      body > div > div:last-child > span,
+      [class*="below-composer"],
+      [class*="disclaimer"],
+      [class*="warning-text"],
+      footer p,
+      footer span {
+        display: none !important;
+      }
+
+      footer:empty,
+      footer:has(> :only-child[data-rabbit-warning-hidden]) {
+        display: none !important;
+      }
+
+      .rabbit-composer-toolbar-row {
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 85%, #0a0a0a) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+      }
+
+      .rabbit-composer-toolbar-row * {
+        color: var(--rabbit-composer-text) !important;
+      }
+
+      .rabbit-composer-prompt-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .rabbit-composer-prompt-dialog {
+        width: min(760px, 96vw);
+        max-height: min(80vh, 760px);
+        overflow: hidden;
+        background: color-mix(in srgb, var(--rabbit-composer-bg) 82%, #0f1116);
+        color: var(--rabbit-composer-text);
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        box-shadow: 0 18px 44px rgba(0,0,0,0.48);
+      }
+
+      .rabbit-composer-prompt-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .rabbit-composer-prompt-toolbar {
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .rabbit-composer-prompt-actions-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .rabbit-composer-prompt-results {
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 10px;
+        padding: 8px;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .rabbit-composer-prompt-result {
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        background: rgba(255,255,255,0.03);
+      }
+
+      .rabbit-composer-prompt-result-title {
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .rabbit-composer-prompt-result-snippet {
+        font-size: 11px;
+        opacity: 0.82;
+        white-space: pre-wrap;
+      }
+
+      .rabbit-composer-prompt-result-tags {
+        font-size: 10px;
+        opacity: 0.72;
+        margin-top: 4px;
+      }
+
+      .rabbit-composer-prompt-result-actions {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
       }
 
       /* =========================
@@ -2616,6 +3177,8 @@
 
       .rabbit-msg-target,
       .rabbit-msg-target *,
+      .rabbit-composer-shell,
+      .rabbit-composer-shell *,
       [role="main"],
       [role="main"] article,
       [role="main"] article *,
@@ -2667,7 +3230,10 @@
       .rabbit-msg-target h3,
       .rabbit-msg-target h4,
       .rabbit-msg-target h5,
-      .rabbit-msg-target h6 {
+      .rabbit-msg-target h6,
+      .rabbit-composer-shell,
+      .rabbit-composer-shell textarea,
+      .rabbit-composer-shell [contenteditable="true"] {
         text-align: var(--rabbit-chat-text-align) !important;
       }
 
@@ -2676,7 +3242,13 @@
       ${warningVisibilityCss}
 
       .rabbit-msg-user,
-      .rabbit-msg-user * {
+      .rabbit-msg-user *,
+      .rabbit-composer-shell .rabbit-composer-input,
+      .rabbit-composer-shell .rabbit-composer-input *,
+      .rabbit-composer-shell textarea,
+      .rabbit-composer-shell textarea *,
+      .rabbit-composer-shell [contenteditable="true"],
+      .rabbit-composer-shell [contenteditable="true"] * {
         font-size: var(--rabbit-user-font-size) !important;
       }
 
@@ -5336,6 +5908,8 @@
   }
 
   function clearComposerClasses() {
+    document.querySelectorAll('.rabbit-composer-prompt-dock').forEach((el) => el.remove());
+    closeComposerPromptMenus();
     document.querySelectorAll('.rabbit-composer-shell').forEach((el) => {
       el.classList.remove('rabbit-composer-shell');
     });
@@ -5352,6 +5926,7 @@
       const shell = findComposerShellForInput(input);
       if (shell instanceof HTMLElement) {
         shell.classList.add('rabbit-composer-shell');
+        ensureComposerPromptDock(shell, input);
       }
       input.classList.add('rabbit-composer-input');
     }
@@ -5399,6 +5974,57 @@
     });
   }
 
+  function fixComposerLayout() {
+    document.querySelectorAll('.rabbit-composer-shell').forEach((shell) => {
+      if (!(shell instanceof HTMLElement)) return;
+      if (shell.dataset.layoutFixed === '1') return;
+
+      const children = [...shell.children].filter((child) => child instanceof HTMLElement);
+      const inputChild = children.find((child) =>
+        child.querySelector('textarea, [contenteditable="true"]')
+      );
+      const toolbarChildren = children.filter((child) => child !== inputChild);
+
+      if (!inputChild || !toolbarChildren.length) return;
+
+      shell.dataset.layoutFixed = '1';
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'rabbit-composer-toolbar-row';
+      toolbar.style.cssText = `
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 4px 10px !important;
+        background: color-mix(in srgb, var(--rabbit-composer-bg, #000) 70%, #000) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 0 0 18px 18px !important;
+        min-height: 36px !important;
+        margin: 0 !important;
+      `;
+
+      toolbarChildren.forEach((child) => toolbar.appendChild(child));
+      shell.appendChild(toolbar);
+      inputChild.style.borderRadius = '18px 18px 0 0';
+    });
+
+    document.querySelectorAll('main > div, body > div > main > div').forEach((el) => {
+      if (!(el instanceof HTMLElement)) return;
+      if (el.closest('.rabbit-composer-shell')) return;
+      if (el.closest('[data-message-author-role]')) return;
+
+      const text = (el.textContent || '').toLowerCase();
+      const rect = el.getBoundingClientRect();
+      if (
+        rect.bottom > window.innerHeight - 80 &&
+        rect.top > window.innerHeight - 100 &&
+        (text.includes('make mistakes') || text.includes('check important') || text === '')
+      ) {
+        el.style.setProperty('display', 'none', 'important');
+      }
+    });
+  }
+
   function pauseObserver() {
     observerPaused = true;
     if (mutationObserver) {
@@ -5419,6 +6045,7 @@
       refreshComposerStyling();
       refreshGptWarningVisibility();
       ensureSidebarDeleteButtons();
+      fixComposerLayout();
     } finally {
       resumeObserver();
     }
@@ -5527,6 +6154,13 @@
       scheduleRefresh(80);
     });
 
+    document.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (target.closest('.rabbit-composer-prompt-dock')) return;
+      if (target.closest('.rabbit-composer-prompt-menu')) return;
+      closeComposerPromptMenus();
+    });
 
     scheduleRefresh(220);
 
